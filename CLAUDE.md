@@ -268,10 +268,6 @@ When working on this project, leverage the specialized skills in `.claude/skills
 | Drag-Drop | SortableJS | Columns and cards |
 | Icons | Bootstrap Icons | Matches Bootstrap theme |
 
-### PR
-
-Review `PR.md` to determine the focus on the current tasks to address any open issues in order to provide pull requests to the parent repo.
-
 ### Issues
 
 Document all issues and their status using markdown with the naming format: `ISSUE{number}.md`
