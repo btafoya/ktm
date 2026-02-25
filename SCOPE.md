@@ -1,8 +1,8 @@
 # Kanban Board with Google Calendar & Gmail Integration - Requirements Specification
 
-**Document Version:** 1.1
+**Document Version:** 1.3
 **Date:** 2026-02-25
-**Status:** Ready for Architecture Design
+**Status:** All Critical Questions Resolved - Ready for Architecture Design
 
 ---
 
@@ -359,14 +359,14 @@ Based on AsteroAdmin Bootstrap 5.3 template:
 | OQ-002 | Should users be able to share boards with others? | Currently scope is personal use only |
 | OQ-003 | What file types should be supported for attachments? | Images, PDF, documents - size limit? |
 | OQ-004 | Should there be email notifications beyond password reset? | Due date reminders requested in card features |
-| OQ-005 | How should date-based columns behave? | Auto-populate with time-based events? |
-| OQ-006 | What is the target deployment environment? | Shared hosting, VPS, cloud platform? |
 | OQ-008 | Should there be data export functionality? | JSON export of boards/cards? |
-| OQ-009 | How should Gmail polling work? | Real-time (webhooks) or scheduled (cron)? |
-| OQ-010 | What is the polling interval for new emails? | 1 min, 5 min, 15 min, or user-configurable? |
 | OQ-011 | Should email task cards be auto-archived after action? | Option to dismiss when marked read/replied in Gmail? |
-| OQ-012 | Should email content be stored locally? | Store full email body in database or just metadata? |
 | OQ-013 | ~~Which AsteroAdmin CSS files should be copied?~~ | **RESOLVED: Full theme** |
+| OQ-006 | ~~What is the target deployment environment?~~ | **RESOLVED: VPS (DigitalOcean, Linode)** |
+| OQ-009 | ~~How should Gmail polling work?~~ | **RESOLVED: Webhooks + Cron Fallback** |
+| OQ-005 | ~~How should date-based columns behave?~~ | **RESOLVED: Auto-populate with events/cards** |
+| OQ-010 | ~~What is the cron fallback polling interval?~~ | **RESOLVED: 5 minutes** |
+| OQ-012 | ~~Should email content be stored locally?~~ | **RESOLVED: Store full email body** |
 
 ### 5.1 Resolved Decisions
 
@@ -381,6 +381,11 @@ Based on AsteroAdmin Bootstrap 5.3 template:
 | RD-007 | WYSIWYG editor library | TipTap for rich text card descriptions |
 | RD-008 | Icon library | Bootstrap Icons (matches Bootstrap theme) |
 | RD-009 | AsteroAdmin asset scope | Full theme (all CSS/JS files) |
+| RD-010 | Deployment environment | VPS (DigitalOcean, Linode) - supports webhooks, queue workers, long-running processes |
+| RD-011 | Gmail polling architecture | Webhooks (Google Pub/Sub) for real-time + Cron job fallback for reliability |
+| RD-012 | Date-based columns behavior | Auto-populate with matching calendar events and cards due within that date range |
+| RD-013 | Cron fallback polling interval | 5 minutes - balances responsiveness with resource usage |
+| RD-014 | Email content storage | Store full email body in database for offline viewing and search capability |
 
 ---
 
