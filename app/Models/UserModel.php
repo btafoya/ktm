@@ -24,6 +24,10 @@ class UserModel extends Model
     protected $createdField = 'created_at';
     protected $updatedField = 'updated_at';
 
+    protected $allowCallbacks = true;
+    protected $beforeInsert = ['hashPassword'];
+    protected $beforeUpdate = ['hashPassword'];
+
     protected $validationRules = [
         'email' => 'required|valid_email|is_unique[users.email,id,{id}]',
         'password_hash' => 'required',
@@ -53,15 +57,7 @@ class UserModel extends Model
         return password_hash($password, PASSWORD_ARGON2ID);
     }
 
-    protected function beforeInsert(array $data): array
-    {
-        if (isset($data['data']['password_hash'])) {
-            $data['data']['password_hash'] = $this->setPassword($data['data']['password_hash']);
-        }
-        return $data;
-    }
-
-    protected function beforeUpdate(array $data): array
+    protected function hashPassword(array $data): array
     {
         if (isset($data['data']['password_hash'])) {
             $data['data']['password_hash'] = $this->setPassword($data['data']['password_hash']);
