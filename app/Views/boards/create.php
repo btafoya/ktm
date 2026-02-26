@@ -1,29 +1,48 @@
 <?= $this->extend('layouts/main') ?>
+
 <?= $this->section('content') ?>
+<div class="container-fluid px-4 py-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="<?= base_url('boards') ?>">Boards</a></li>
+            <li class="breadcrumb-item active">New Board</li>
+        </ol>
+    </nav>
 
-<div class="mb-4">
-    <a href="/" class="text-decoration-none">
-        <i class="bi bi-arrow-left me-1"></i>Back to Boards
-    </a>
-</div>
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header bg-dark border-secondary">
+                    <h5>Create New Board</h5>
+                </div>
+                <div class="card-body">
+                    <?= validation_list_errors('alert alert-danger') ?>
 
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">Create New Board</h5>
-    </div>
-    <div class="card-body">
-        <form action="/boards" method="post">
-            <div class="mb-3">
-                <label for="name" class="form-label">Board Name</label>
-                <input type="text" class="form-control" id="name" name="name" required
-                       value="<?= old('name') ?>" autofocus>
+                    <form action="<?= base_url('boards/create') ?>" method="post">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Board Name</label>
+                            <input type="text" class="form-control bg-dark-subtle text-light border-secondary"
+                                   id="name" name="name" value="<?= old('name') ?>" required maxlength="100">
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control bg-dark-subtle text-light border-secondary"
+                                      id="description" name="description" rows="3"
+                                      maxlength="500"><?= old('description') ?></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="background_color" class="form-label">Background Color</label>
+                            <input type="color" class="form-control form-control-color bg-dark-subtle text-light border-secondary"
+                                   id="background_color" name="background_color" value="#212529">
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">Create Board</button>
+                            <a href="<?= base_url('boards') ?>" class="btn btn-outline-light">Cancel</a>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Create Board</button>
-                <a href="/" class="btn btn-secondary">Cancel</a>
-            </div>
-        </form>
+        </div>
     </div>
 </div>
-
-<?php $this->endSection() ?>
+<?= $this->endSection() ?>

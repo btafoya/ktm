@@ -3,289 +3,206 @@
 namespace App\Controllers;
 
 use App\Models\UserModel;
-use CodeIgniter\HTTP\ResponseInterface;
+use App\Models\BoardModel;
+use App\Models\ColumnModel;
+use App\Models\PasswordResetModel;
 
 class AuthController extends BaseController
 {
-    protected UserModel $userModel;
+    protected $userModel;
+    protected $boardModel;
+    protected $columnModel;
+    protected $passwordResetModel;
 
     public function __construct()
     {
-        $this->userModel = model(UserModel::class);
+        $this->userModel = new UserModel();
+        $this->boardModel = new BoardModel();
+        $this->columnModel = new ColumnModel();
+        $this->passwordResetModel = new PasswordResetModel();
     }
 
-    /**
-     * Show login form
-     */
-    public function login(): string
+    public function login()
     {
-        return view('auth/login', [
-            'title' => 'Login - Kanban Task Manager',
-        ]);
-    }
+        if ($this->request->getMethod() === 'POST') {
+            $email = $this->request->getPost('email');
+            $password = $this->request->getPost('password');
 
-    /**
-     * Attempt to login
-     */
-    public function attemptLogin(): ResponseInterface
-    {
-        $email = $this->request->getPost('email');
-        $password = $this->request->getPost('password');
-        $remember = (bool) $this->request->getPost('remember');
+            $user = $this->userModel->findByEmail($email);
 
-        $rules = [
-            'email'    => 'required|valid_email',
-            'password' => 'required',
-        ];
+            if ($user && $this->userModel->verifyPassword($password, $user['password_hash'])) {
+                if (!$user['is_active']) {
+                    return redirect()->back()->with('error', 'Your account is inactive. Please contact support.');
+                }
 
-        if (!$this->validate($rules)) {
-            return redirect()->back()
-                ->withInput()
-                ->with('errors', $this->validator->getErrors());
+                session()->set([
+                    'user_id' => $user['id'],
+                    'email' => $user['email'],
+                    'full_name' => $user['full_name'],
+                    'logged_in' => true,
+                ]);
+
+                $defaultBoard = $this->boardModel->getDefaultBoard($user['id']);
+                if ($defaultBoard) {
+                    return redirect()->to("boards/{$defaultBoard['id']}");
+                }
+
+                return redirect()->to('boards');
+            }
+
+            return redirect()->back()->with('error', 'Invalid email or password.');
         }
 
-        if (!$this->userModel->verifyPassword($email, $password)) {
-            return redirect()->back()
-                ->withInput()
-                ->with('error', 'Invalid email or password');
-        }
-
-        $user = $this->userModel->findByEmail($email);
-
-        // Set session
-        session()->set([
-            'user_id' => $user['id'],
-            'email' => $user['email'],
-            'display_name' => $user['display_name'] ?? explode('@', $user['email'])[0],
-        ]);
-
-        return redirect()->to('/')->with('success', 'Welcome back!');
+        return view('auth/login');
     }
 
-    /**
-     * Show registration form
-     */
-    public function register(): string
+    public function register()
     {
-        return view('auth/register', [
-            'title' => 'Register - Kanban Task Manager',
-        ]);
-    }
+        if ($this->request->getMethod() === 'POST') {
+            $rules = [
+                'email' => 'required|valid_email|is_unique[users.email]',
+                'password' => 'required|min_length[8]',
+                'password_confirm' => 'required|matches[password]',
+                'full_name' => 'permit_empty|string|max_length[255]',
+            ];
 
-    /**
-     * Attempt to register
-     */
-    public function attemptRegister(): ResponseInterface
-    {
-        $rules = [
-            'email'                 => 'required|valid_email|is_unique[users.email]',
-            'password'              => 'required|min_length[8]',
-            'password_confirm'      => 'required|matches[password]',
-            'display_name'          => 'permit_empty|string|max_length[100]',
-        ];
+            if (!$this->validate($rules)) {
+                return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+            }
 
-        if (!$this->validate($rules)) {
-            return redirect()->back()
-                ->withInput()
-                ->with('errors', $this->validator->getErrors());
-        }
-
-        $userId = $this->userModel->insert([
-            'email' => $this->request->getPost('email'),
-            'password' => $this->request->getPost('password'),
-            'display_name' => $this->request->getPost('display_name') ?: null,
-        ]);
-
-        if (!$userId) {
-            return redirect()->back()
-                ->withInput()
-                ->with('error', 'Failed to create account');
-        }
-
-        // Create default board for new user
-        $this->createDefaultBoard($userId);
-
-        // Auto-login
-        session()->set([
-            'user_id' => $userId,
-            'email' => $this->request->getPost('email'),
-            'display_name' => $this->request->getPost('display_name') ?: explode('@', $this->request->getPost('email'))[0],
-        ]);
-
-        return redirect()->to('/')->with('success', 'Account created! Welcome to Kanban Task Manager');
-    }
-
-    /**
-     * Logout
-     */
-    public function logout(): ResponseInterface
-    {
-        session()->destroy();
-
-        return redirect()->to('auth/login')->with('success', 'You have been logged out');
-    }
-
-    /**
-     * Show forgot password form
-     */
-    public function forgotPassword(): string
-    {
-        return view('auth/forgot_password', [
-            'title' => 'Forgot Password - Kanban Task Manager',
-        ]);
-    }
-
-    /**
-     * Send password reset link
-     */
-    public function sendResetLink(): ResponseInterface
-    {
-        $email = $this->request->getPost('email');
-
-        if (!$this->validate(['email' => 'required|valid_email'])) {
-            return redirect()->back()
-                ->withInput()
-                ->with('errors', $this->validator->getErrors());
-        }
-
-        $user = $this->userModel->findByEmail($email);
-
-        // Always show success message to prevent email enumeration
-        // Only send email if user exists
-        if ($user) {
-            $this->sendPasswordResetEmail($user);
-        }
-
-        return redirect()->back()
-            ->with('success', 'If an account with that email exists, you will receive a password reset link');
-    }
-
-    /**
-     * Show reset password form
-     */
-    public function resetPassword(string $token): string|ResponseInterface
-    {
-        // Validate token
-        $db = db_connect();
-        $reset = $db->table('password_resets')
-            ->where('token', $token)
-            ->where('created_at >', date('Y-m-d H:i:s', time() - 3600)) // 1 hour expiry
-            ->first();
-
-        if (!$reset) {
-            return redirect()->to('auth/forgot-password')
-                ->with('error', 'Invalid or expired reset link');
-        }
-
-        return view('auth/reset_password', [
-            'title' => 'Reset Password - Kanban Task Manager',
-            'token' => $token,
-        ]);
-    }
-
-    /**
-     * Submit new password
-     */
-    public function resetPasswordSubmit(): ResponseInterface
-    {
-        $token = $this->request->getPost('token');
-        $password = $this->request->getPost('password');
-
-        $rules = [
-            'token'                 => 'required',
-            'password'              => 'required|min_length[8]',
-            'password_confirm'      => 'required|matches[password]',
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()
-                ->withInput()
-                ->with('errors', $this->validator->getErrors());
-        }
-
-        $db = db_connect();
-        $reset = $db->table('password_resets')
-            ->where('token', $token)
-            ->where('created_at >', date('Y-m-d H:i:s', time() - 3600))
-            ->first();
-
-        if (!$reset) {
-            return redirect()->to('auth/forgot-password')
-                ->with('error', 'Invalid or expired reset link');
-        }
-
-        // Update password
-        $this->userModel->update($reset['email'], ['password' => $password]); // Will be hashed by model
-
-        // Delete reset token
-        $db->table('password_resets')->where('token', $token)->delete();
-
-        return redirect()->to('auth/login')
-            ->with('success', 'Password has been reset. Please log in with your new password');
-    }
-
-    /**
-     * Create default board for new user
-     */
-    private function createDefaultBoard(int $userId): void
-    {
-        $db = db_connect();
-
-        // Create board
-        $boardId = $db->table('boards')->insertGetId([
-            'user_id' => $userId,
-            'name' => 'My First Board',
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-        ]);
-
-        // Create default columns
-        $columns = [
-            ['name' => 'To Do', 'position' => 0],
-            ['name' => 'In Progress', 'position' => 1],
-            ['name' => 'Done', 'position' => 2],
-        ];
-
-        foreach ($columns as $column) {
-            $db->table('columns')->insert([
-                'board_id' => $boardId,
-                'name' => $column['name'],
-                'position' => $column['position'],
+            $userData = [
+                'email' => $this->request->getPost('email'),
+                'password_hash' => $this->request->getPost('password'),
+                'full_name' => $this->request->getPost('full_name'),
+                'timezone' => 'UTC',
+                'is_active' => true,
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),
-            ]);
+            ];
+
+            $userId = $this->userModel->insert($userData);
+
+            if ($userId) {
+                $boardId = $this->boardModel->insert([
+                    'user_id' => $userId,
+                    'name' => 'My Board',
+                    'description' => 'My first kanban board',
+                    'is_public' => false,
+                    'is_default' => true,
+                    'column_order' => json_encode([]),
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+
+                if ($boardId) {
+                    $defaultColumns = [
+                        ['Backlog', '#6c757d', 0],
+                        ['To Do', '#0d6efd', 1],
+                        ['In Progress', '#ffc107', 2],
+                        ['Done', '#198754', 3],
+                    ];
+
+                    foreach ($defaultColumns as $col) {
+                        $this->columnModel->insert([
+                            'board_id' => $boardId,
+                            'name' => $col[0],
+                            'color' => $col[1],
+                            'position' => $col[2],
+                            'created_at' => date('Y-m-d H:i:s'),
+                            'updated_at' => date('Y-m-d H:i:s'),
+                        ]);
+                    }
+                }
+
+                session()->set([
+                    'user_id' => $userId,
+                    'email' => $userData['email'],
+                    'full_name' => $userData['full_name'],
+                    'logged_in' => true,
+                ]);
+
+                return redirect()->to("boards/{$boardId}");
+            }
+
+            return redirect()->back()->with('error', 'Failed to create account. Please try again.');
         }
+
+        return view('auth/register');
     }
 
-    /**
-     * Send password reset email
-     */
-    private function sendPasswordResetEmail(array $user): void
+    public function logout()
     {
-        $token = bin2hex(random_bytes(32));
-        $db = db_connect();
+        session()->destroy();
+        return redirect()->to('auth/login')->with('success', 'You have been logged out.');
+    }
 
-        // Delete existing tokens for this email
-        $db->table('password_resets')->where('email', $user['email'])->delete();
+    public function forgotPassword()
+    {
+        if ($this->request->getMethod() === 'POST') {
+            $email = $this->request->getPost('email');
 
-        // Store new token
-        $db->table('password_resets')->insert([
-            'email' => $user['email'],
-            'token' => $token,
-            'created_at' => date('Y-m-d H:i:s'),
-        ]);
+            $user = $this->userModel->findByEmail($email);
+            if (!$user) {
+                return redirect()->back()->with('success', 'If an account exists with that email, password reset instructions have been sent.');
+            }
 
-        // Send email (using built-in CI4 email library)
-        $email = \Config\Services::email();
-        $resetLink = site_url("auth/reset-password/{$token}");
+            $token = $this->passwordResetModel->createToken($email);
 
-        $email->setTo($user['email']);
-        $email->setSubject('Password Reset - Kanban Task Manager');
-        $email->setMessage(view('emails/password_reset', [
-            'user' => $user,
-            'resetLink' => $resetLink,
-        ]));
+            $resetUrl = base_url("auth/reset-password?token={$token}");
 
-        $email->send();
+            $emailMessage = view('emails/password_reset', ['resetUrl' => $resetUrl, 'full_name' => $user['full_name'] ?? 'User']);
+
+            $emailService = \Config\Services::email();
+            $emailService->setTo($email);
+            $emailService->setSubject('Password Reset Request');
+            $emailService->setMessage($emailMessage);
+
+            if ($emailService->send()) {
+                return redirect()->back()->with('success', 'Password reset instructions have been sent to your email.');
+            }
+
+            return redirect()->back()->with('error', 'Failed to send password reset email. Please try again.');
+        }
+
+        return view('auth/forgot_password');
+    }
+
+    public function resetPassword()
+    {
+        $token = $this->request->getGet('token');
+
+        if (!$token || $this->passwordResetModel->isExpired($token)) {
+            return redirect()->to('auth/forgot-password')->with('error', 'Invalid or expired reset token.');
+        }
+
+        $reset = $this->passwordResetModel->findByToken($token);
+        if (!$reset) {
+            return redirect()->to('auth/forgot-password')->with('error', 'Invalid reset token.');
+        }
+
+        if ($this->request->getMethod() === 'POST') {
+            $rules = [
+                'password' => 'required|min_length[8]',
+                'password_confirm' => 'required|matches[password]',
+            ];
+
+            if (!$this->validate($rules)) {
+                return redirect()->back()->with('errors', $this->validator->getErrors());
+            }
+
+            $user = $this->userModel->findByEmail($reset['email']);
+            if ($user) {
+                $this->userModel->update($user['id'], [
+                    'password_hash' => $this->request->getPost('password'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+            }
+
+            $this->passwordResetModel->deleteByEmail($reset['email']);
+
+            return redirect()->to('auth/login')->with('success', 'Your password has been reset. Please log in.');
+        }
+
+        return view('auth/reset_password', ['token' => $token]);
     }
 }

@@ -13,7 +13,6 @@ class AuthFilter implements FilterInterface
         if (!session()->get('user_id')) {
             return redirect()->to('auth/login')->with('error', 'Please log in to continue.');
         }
-
         return $request;
     }
 

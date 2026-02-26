@@ -14,7 +14,7 @@ class ApiAuthFilter implements FilterInterface
 
         if (!$userId) {
             return $request->getJSON()
-                ? service('response')->setJSON(['status' => 'error', 'message' => 'Unauthorized'], 401)
+                ? $this->unauthorizedResponse('Unauthorized. Please log in.')
                 : redirect()->to('auth/login');
         }
 
@@ -23,6 +23,14 @@ class ApiAuthFilter implements FilterInterface
 
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
     {
+        return $response;
+    }
+
+    private function unauthorizedResponse(string $message): ResponseInterface
+    {
+        $response = service('response');
+        $response->setStatusCode(401);
+        $response->setJSON(['error' => $message]);
         return $response;
     }
 }

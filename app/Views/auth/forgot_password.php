@@ -1,21 +1,47 @@
-<?= $this->extend('layouts/auth') ?>
+<?= $this->extend('layouts/main') ?>
+
 <?= $this->section('content') ?>
+<div class="container auth-container">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header bg-dark border-secondary">
+                    <h5>Forgot Password</h5>
+                </div>
+                <div class="card-body">
+                    <?php if (session()->getFlashdata('success')): ?>
+                    <div class="alert alert-success">
+                        <?= esc(session()->getFlashdata('success')) ?>
+                    </div>
+                    <?php endif; ?>
 
-<p class="text-muted mb-3">Enter your email address and we'll send you a link to reset your password.</p>
+                    <?php if (session()->getFlashdata('error')): ?>
+                    <div class="alert alert-danger">
+                        <?= esc(session()->getFlashdata('error')) ?>
+                    </div>
+                    <?php endif; ?>
 
-<form action="/auth/forgot-password" method="post">
-    <div class="mb-3">
-        <label for="email" class="form-label">Email</label>
-        <input type="email" class="form-control" id="email" name="email" required
-               value="<?= old('email') ?>" autofocus>
+                    <?= validation_list_errors('alert alert-danger') ?>
+
+                    <form action="<?= base_url('auth/forgot-password') ?>" method="post">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email Address</label>
+                            <input type="email" class="form-control bg-dark-subtle text-light border-secondary"
+                                   id="email" name="email" required autofocus>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Send Reset Link</button>
+                        </div>
+                    </form>
+
+                    <div class="mt-3 text-center">
+                        <a href="<?= base_url('auth/login') ?>" class="text-decoration-none">
+                            <i class="bi bi-arrow-left"></i> Back to Login
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="d-grid gap-2">
-        <button type="submit" class="btn btn-primary">Send Reset Link</button>
-    </div>
-</form>
-
-<div class="text-center mt-3">
-    <a href="/auth/login" class="text-decoration-none">Back to Login</a>
 </div>
-
-<?php $this->endSection() ?>
+<?= $this->endSection() ?>

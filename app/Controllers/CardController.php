@@ -5,433 +5,210 @@ namespace App\Controllers;
 use App\Models\CardModel;
 use App\Models\ColumnModel;
 use App\Models\BoardModel;
-use App\Models\ChecklistItemModel;
-use App\Models\TagModel;
-use CodeIgniter\HTTP\ResponseInterface;
 
 class CardController extends BaseController
 {
-    protected CardModel $cardModel;
-    protected ColumnModel $columnModel;
-    protected BoardModel $boardModel;
-    protected ChecklistItemModel $checklistModel;
-    protected TagModel $tagModel;
+    protected $cardModel;
+    protected $columnModel;
+    protected $boardModel;
 
     public function __construct()
     {
-        $this->cardModel = model(CardModel::class);
-        $this->columnModel = model(ColumnModel::class);
-        $this->boardModel = model(BoardModel::class);
-        $this->checklistModel = model(ChecklistItemModel::class);
-        $this->tagModel = model(TagModel::class);
+        $this->cardModel = new CardModel();
+        $this->columnModel = new ColumnModel();
+        $this->boardModel = new BoardModel();
     }
 
-    /**
-     * Store new card
-     */
-    public function store(): ResponseInterface
+    public function show($id)
     {
-        $userId = session()->get('user_id');
-        $columnId = (int) $this->request->getPost('column_id');
+        $card = $this->cardModel->getWithDetails($id);
+        if (!$card) {
+            return redirect()->back()->with('error', 'Card not found.');
+        }
 
-        $column = $this->columnModel->find($columnId);
+        return view('cards/show', ['card' => $card]);
+    }
 
+    public function create()
+    {
+        $rules = [
+            'column_id' => 'required|numeric',
+            'title' => 'required|min_length[1]|max_length[200]',
+            'description' => 'permit_empty',
+            'priority' => 'permit_empty|in_list[low,medium,high]',
+            'due_date' => 'permit_empty|valid_date[Y-m-d\TH:i]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'errors' => $this->validator->getErrors(),
+            ]);
+        }
+
+        $column = $this->columnModel->find($this->request->getPost('column_id'));
         if (!$column) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Column not found'], 404);
+            return $this->response->setJSON(['success' => false, 'message' => 'Column not found.']);
         }
 
         $board = $this->boardModel->find($column['board_id']);
+        $userId = session()->get('user_id');
 
-        if (!$board || $board['user_id'] !== $userId) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
+        if (!$board || $board['user_id'] != $userId) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Access denied.']);
         }
 
-        if (!$this->validate([
-            'column_id' => 'required|integer',
-            'board_id' => 'required|integer',
-            'title' => 'required|string|max_length[255]',
-        ])) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Validation failed',
-                'errors' => $this->validator->getErrors(),
-            ], 422);
-        }
-
-        $position = $this->cardModel->getMaxPosition($columnId) + 1;
+        $maxPosition = $this->cardModel->where('column_id', $column['id'])->selectMax('position')->first()['position'] ?? -1;
 
         $cardData = [
-            'column_id' => $columnId,
-            'board_id' => $this->request->getPost('board_id'),
+            'column_id' => $column['id'],
             'title' => $this->request->getPost('title'),
-            'description' => $this->request->getPost('description') ?: null,
-            'color' => $this->request->getPost('color') ?: '#6c757d',
-            'priority' => $this->request->getPost('priority') ?: 'medium',
+            'description' => $this->request->getPost('description') ?: '',
+            'priority' => $this->request->getPost('priority') ?: 'low',
             'due_date' => $this->request->getPost('due_date') ?: null,
-            'position' => $position,
+            'position' => $maxPosition + 1,
+            'is_completed' => false,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
         ];
 
         $cardId = $this->cardModel->insert($cardData);
 
-        if (!$cardId) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Failed to create card',
-            ], 500);
+        if ($cardId) {
+            $card = $this->cardModel->find($cardId);
+            $card['column_name'] = $column['name'];
+            return $this->response->setJSON(['success' => true, 'card' => $card]);
         }
 
-        // Handle tags
-        $tags = $this->request->getPost('tags');
-        if (is_array($tags)) {
-            foreach ($tags as $tagName) {
-                $tag = $this->tagModel->getOrCreate($tagName);
-                $this->tagModel->attachToCard($cardId, $tag['id']);
-            }
-        }
-
-        // Handle checklist
-        $checklistItems = $this->request->getPost('checklist');
-        if (is_array($checklistItems)) {
-            foreach ($checklistItems as $index => $text) {
-                if (trim($text)) {
-                    $this->checklistModel->insert([
-                        'card_id' => $cardId,
-                        'text' => trim($text),
-                        'position' => $index,
-                        'created_at' => date('Y-m-d H:i:s'),
-                    ]);
-                }
-            }
-        }
-
-        $card = $this->cardModel->getWithRelations($cardId);
-
-        return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Card created',
-            'card' => $card,
-        ]);
+        return $this->response->setJSON(['success' => false, 'message' => 'Failed to create card.']);
     }
 
-    /**
-     * Show card details
-     */
-    public function show(int $id): ResponseInterface
+    public function update($id)
     {
-        $userId = session()->get('user_id');
         $card = $this->cardModel->find($id);
-
         if (!$card) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Card not found'], 404);
+            return $this->response->setJSON(['success' => false, 'message' => 'Card not found.']);
         }
 
-        $board = $this->boardModel->find($card['board_id']);
-
-        if (!$board || $board['user_id'] !== $userId) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
-        }
-
-        $card = $this->cardModel->getWithRelations($id);
-
-        return $this->response->setJSON([
-            'status' => 'success',
-            'card' => $card,
-        ]);
-    }
-
-    /**
-     * Update card
-     */
-    public function update(int $id): ResponseInterface
-    {
+        $column = $this->columnModel->find($card['column_id']);
+        $board = $this->boardModel->find($column['board_id']);
         $userId = session()->get('user_id');
-        $card = $this->cardModel->find($id);
 
-        if (!$card) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Card not found'], 404);
+        if (!$board || $board['user_id'] != $userId) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Access denied.']);
         }
 
-        $board = $this->boardModel->find($card['board_id']);
-
-        if (!$board || $board['user_id'] !== $userId) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
-        }
-
-        $data = $this->request->getRawInput();
-
-        // Validate required fields
-        if (isset($data['title']) && empty($data['title'])) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Title is required',
-            ], 422);
-        }
-
-        $allowedFields = ['title', 'description', 'color', 'priority', 'due_date'];
-        $updateData = array_intersect_key($data, array_flip($allowedFields));
-
-        if (!$this->cardModel->update($id, $updateData)) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Failed to update card',
-            ], 500);
-        }
-
-        return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Card updated',
-        ]);
-    }
-
-    /**
-     * Delete card
-     */
-    public function delete(int $id): ResponseInterface
-    {
-        $userId = session()->get('user_id');
-        $card = $this->cardModel->find($id);
-
-        if (!$card) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Card not found'], 404);
-        }
-
-        $board = $this->boardModel->find($card['board_id']);
-
-        if (!$board || $board['user_id'] !== $userId) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
-        }
-
-        // Delete attachments
-        model('App\Models\AttachmentModel')->deleteForCard($id);
-
-        if (!$this->cardModel->delete($id)) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Failed to delete card',
-            ], 500);
-        }
-
-        return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Card deleted',
-        ]);
-    }
-
-    /**
-     * Move card to another column
-     */
-    public function move(int $id): ResponseInterface
-    {
-        $userId = session()->get('user_id');
-        $card = $this->cardModel->find($id);
-
-        if (!$card) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Card not found'], 404);
-        }
-
-        $board = $this->boardModel->find($card['board_id']);
-
-        if (!$board || $board['user_id'] !== $userId) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
-        }
-
-        $data = $this->request->getJSON(true);
-
-        if (!isset($data['target_column_id'])) {
-            return $this->response->setJSON([
-                'status' => 'error',
-                'message' => 'Target column ID required',
-            ], 422);
-        }
-
-        $targetColumn = $this->columnModel->find($data['target_column_id']);
-
-        if (!$targetColumn || $targetColumn['board_id'] !== $card['board_id']) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Invalid target column'], 422);
-        }
-
-        $newPosition = $data['position'] ?? $this->cardModel->getMaxPosition($data['target_column_id']) + 1;
-
-        if (!$this->cardModel->moveToColumn($id, $data['target_column_id'], $newPosition)) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Failed to move card'], 500);
-        }
-
-        return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Card moved',
-        ]);
-    }
-
-    /**
-     * Reorder card in column
-     */
-    public function reorder(int $id): ResponseInterface
-    {
-        $userId = session()->get('user_id');
-        $card = $this->cardModel->find($id);
-
-        if (!$card) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Card not found'], 404);
-        }
-
-        $board = $this->boardModel->find($card['board_id']);
-
-        if (!$board || $board['user_id'] !== $userId) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
-        }
-
-        $data = $this->request->getJSON(true);
-
-        if (!isset($data['position'])) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Position required'], 422);
-        }
-
-        if (!$this->cardModel->update($id, ['position' => $data['position']])) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Failed to reorder card'], 500);
-        }
-
-        return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Card reordered',
-        ]);
-    }
-
-    /**
-     * Add tag to card
-     */
-    public function addTag(int $id): ResponseInterface
-    {
-        $userId = session()->get('user_id');
-        $card = $this->cardModel->find($id);
-
-        if (!$card) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Card not found'], 404);
-        }
-
-        $board = $this->boardModel->find($card['board_id']);
-
-        if (!$board || $board['user_id'] !== $userId) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
-        }
-
-        $tagName = $this->request->getJSON(true)['tag_name'] ?? '';
-
-        if (empty($tagName)) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Tag name required'], 422);
-        }
-
-        $tag = $this->tagModel->getOrCreate($tagName);
-
-        if (!$this->tagModel->attachToCard($id, $tag['id'])) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Failed to add tag'], 500);
-        }
-
-        return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Tag added',
-            'tag' => $tag,
-        ]);
-    }
-
-    /**
-     * Remove tag from card
-     */
-    public function removeTag(int $id, int $tagId): ResponseInterface
-    {
-        $userId = session()->get('user_id');
-        $card = $this->cardModel->find($id);
-
-        if (!$card) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Card not found'], 404);
-        }
-
-        $board = $this->boardModel->find($card['board_id']);
-
-        if (!$board || $board['user_id'] !== $userId) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
-        }
-
-        if (!$this->tagModel->detachFromCard($id, $tagId)) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Failed to remove tag'], 500);
-        }
-
-        return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Tag removed',
-        ]);
-    }
-
-    /**
-     * Upload attachment
-     */
-    public function uploadAttachment(int $id): ResponseInterface
-    {
-        $userId = session()->get('user_id');
-        $card = $this->cardModel->find($id);
-
-        if (!$card) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Card not found'], 404);
-        }
-
-        $board = $this->boardModel->find($card['board_id']);
-
-        if (!$board || $board['user_id'] !== $userId) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
-        }
-
-        $file = $this->request->getFile('attachment');
-
-        if (!$file || !$file->isValid()) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Invalid file'], 422);
-        }
-
-        // Max 10MB
-        if ($file->getSize() > 10 * 1024 * 1024) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'File too large (max 10MB)'], 422);
-        }
-
-        // Allowed types
-        $allowedTypes = [
-            'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-            'application/pdf',
-            'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'text/plain',
+        $rules = [
+            'title' => 'permit_empty|min_length[1]|max_length[200]',
+            'description' => 'permit_empty',
+            'priority' => 'permit_empty|in_list[low,medium,high]',
+            'due_date' => 'permit_empty|valid_date[Y-m-d\TH:i]',
         ];
 
-        if (!in_array($file->getClientMimeType(), $allowedTypes)) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Invalid file type'], 422);
+        if (!$this->validate($rules)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'errors' => $this->validator->getErrors(),
+            ]);
         }
 
-        // Generate unique filename
-        $filename = bin2hex(random_bytes(8)) . '.' . $file->getExtension();
+        $updateData = ['updated_at' => date('Y-m-d H:i:s')];
 
-        // Store file
-        $uploadPath = WRITEPATH . 'uploads/attachments/';
-
-        if (!is_dir($uploadPath)) {
-            mkdir($uploadPath, 0755, true);
+        $title = $this->request->getPost('title');
+        if ($title !== null && $title !== '') {
+            $updateData['title'] = $title;
         }
 
-        $file->move($uploadPath, $filename);
+        $description = $this->request->getPost('description');
+        if ($description !== null) {
+            $updateData['description'] = $description;
+        }
 
-        // Save to database
-        $attachmentModel = model('App\Models\AttachmentModel');
+        $priority = $this->request->getPost('priority');
+        if ($priority !== null && in_array($priority, ['low', 'medium', 'high'])) {
+            $updateData['priority'] = $priority;
+        }
 
-        $attachmentId = $attachmentModel->insert([
-            'card_id' => $id,
-            'filename' => $filename,
-            'original_name' => $file->getClientName(),
-            'filesize' => $file->getSize(),
-            'mimetype' => $file->getClientMimeType(),
-            'stored_at' => 'local',
-            'file_path' => 'attachments/' . $filename,
-            'created_at' => date('Y-m-d H:i:s'),
-        ]);
+        $dueDate = $this->request->getPost('due_date');
+        if ($dueDate !== null && $dueDate !== '') {
+            $updateData['due_date'] = $dueDate;
+        }
+
+        $isCompleted = $this->request->getPost('is_completed');
+        if ($isCompleted !== null) {
+            $updateData['is_completed'] = filter_var($isCompleted, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        $updated = $this->cardModel->update($id, $updateData);
 
         return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'File uploaded',
-            'attachment' => $attachmentModel->find($attachmentId),
+            'success' => $updated,
+            'message' => $updated ? 'Card updated.' : 'Failed to update card.',
+        ]);
+    }
+
+    public function delete($id)
+    {
+        $card = $this->cardModel->find($id);
+        if (!$card) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Card not found.']);
+        }
+
+        $column = $this->columnModel->find($card['column_id']);
+        $board = $this->boardModel->find($column['board_id']);
+        $userId = session()->get('user_id');
+
+        if (!$board || $board['user_id'] != $userId) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Access denied.']);
+        }
+
+        $deleted = $this->cardModel->delete($id);
+
+        return $this->response->setJSON([
+            'success' => $deleted,
+            'message' => $deleted ? 'Card deleted.' : 'Failed to delete card.',
+        ]);
+    }
+
+    public function move()
+    {
+        $json = $this->request->getJSON(true);
+        $cardId = $json['card_id'] ?? null;
+        $targetColumnId = $json['column_id'] ?? null;
+        $cardIds = $json['card_ids'] ?? [];
+
+        if (!$cardId || !$targetColumnId) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Missing required parameters.']);
+        }
+
+        $card = $this->cardModel->find($cardId);
+        if (!$card) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Card not found.']);
+        }
+
+        $column = $this->columnModel->find($card['column_id']);
+        $targetColumn = $this->columnModel->find($targetColumnId);
+
+        if (!$column || !$targetColumn) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Column not found.']);
+        }
+
+        $board = $this->boardModel->find($column['board_id']);
+        $userId = session()->get('user_id');
+
+        if (!$board || $board['user_id'] != $userId) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Access denied.']);
+        }
+
+        if ($column['board_id'] !== $targetColumn['board_id']) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Cannot move cards between boards.']);
+        }
+
+        $success = $this->cardModel->reorder($targetColumnId, $cardIds);
+
+        return $this->response->setJSON([
+            'success' => $success,
+            'message' => $success ? 'Cards moved.' : 'Failed to move cards.',
         ]);
     }
 }

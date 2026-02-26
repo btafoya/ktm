@@ -8,30 +8,42 @@ use CodeIgniter\HTTP\ResponseInterface;
 
 class RateLimitFilter implements FilterInterface
 {
-    private const LIMIT = 5;
-    private const WINDOW = 60; // 60 seconds
+    private int $maxRequests = 60;
+    private int $windowSeconds = 60;
 
     public function before(RequestInterface $request, $arguments = null)
     {
-        $ip = $request->getIPAddress();
-        $key = 'ratelimit_' . $ip;
+        $key = $this->getRateLimitKey($request);
         $cache = cache();
 
-        $attempts = $cache->get($key) ?? 0;
+        $current = (int) $cache->get($key);
 
-        if ($attempts >= self::LIMIT) {
-            return service('response')
-                ->setJSON(['status' => 'error', 'message' => 'Too many attempts. Please try again later.'])
-                ->setStatusCode(429);
+        if ($current >= $this->maxRequests) {
+            $response = service('response');
+            $response->setStatusCode(429);
+            $response->setHeader('Retry-After', (string) $this->windowSeconds);
+            if ($request->isAJAX() || $request->isCLI()) {
+                return $response->setJSON(['error' => 'Too many requests. Please try again later.']);
+            }
+            return $response->setBody('Too many requests. Please try again later.');
         }
 
-        $cache->save($key, $attempts + 1, self::WINDOW);
+        $cache->save($key, $current + 1, $this->windowSeconds);
 
         return $request;
     }
 
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
     {
+        $response->setHeader('X-RateLimit-Limit', (string) $this->maxRequests);
+        $response->setHeader('X-RateLimit-Window', (string) $this->windowSeconds);
         return $response;
+    }
+
+    private function getRateLimitKey(RequestInterface $request): string
+    {
+        $ip = $request->getIPAddress();
+        $uri = $request->getUri()->getPath();
+        return "rate_limit:{$ip}:{$uri}";
     }
 }

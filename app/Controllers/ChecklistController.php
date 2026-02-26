@@ -4,164 +4,161 @@ namespace App\Controllers;
 
 use App\Models\ChecklistItemModel;
 use App\Models\CardModel;
+use App\Models\ColumnModel;
 use App\Models\BoardModel;
-use CodeIgniter\HTTP\ResponseInterface;
 
 class ChecklistController extends BaseController
 {
-    protected ChecklistItemModel $checklistModel;
-    protected CardModel $cardModel;
-    protected BoardModel $boardModel;
+    protected $checklistModel;
+    protected $cardModel;
+    protected $columnModel;
+    protected $boardModel;
 
     public function __construct()
     {
-        $this->checklistModel = model(ChecklistItemModel::class);
-        $this->cardModel = model(CardModel::class);
-        $this->boardModel = model(BoardModel::class);
+        $this->checklistModel = new ChecklistItemModel();
+        $this->cardModel = new CardModel();
+        $this->columnModel = new ColumnModel();
+        $this->boardModel = new BoardModel();
     }
 
-    /**
-     * Store checklist item
-     */
-    public function store(int $cardId): ResponseInterface
+    private function checkCardAccess(int $cardId): bool
     {
-        $userId = session()->get('user_id');
         $card = $this->cardModel->find($cardId);
-
         if (!$card) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Card not found'], 404);
+            return false;
         }
 
-        $board = $this->boardModel->find($card['board_id']);
+        $column = $this->columnModel->find($card['column_id']);
+        $board = $this->boardModel->find($column['board_id']);
+        $userId = session()->get('user_id');
 
-        if (!$board || $board['user_id'] !== $userId) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
+        return $board && $board['user_id'] == $userId;
+    }
+
+    public function create()
+    {
+        $rules = [
+            'card_id' => 'required|numeric',
+            'title' => 'required|min_length[1]|max_length[200]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'errors' => $this->validator->getErrors(),
+            ]);
         }
 
-        $text = $this->request->getJSON(true)['text'] ?? '';
+        $cardId = $this->request->getPost('card_id');
 
-        if (empty($text)) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Text is required'], 422);
+        if (!$this->checkCardAccess($cardId)) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Access denied.']);
         }
 
-        $position = count($this->checklistModel->getForCard($cardId));
+        $maxPosition = $this->checklistModel->where('card_id', $cardId)->selectMax('position')->first()['position'] ?? -1;
 
         $itemId = $this->checklistModel->insert([
             'card_id' => $cardId,
-            'text' => $text,
-            'position' => $position,
+            'title' => $this->request->getPost('title'),
+            'is_completed' => false,
+            'position' => $maxPosition + 1,
             'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        if ($itemId) {
+            $item = $this->checklistModel->find($itemId);
+            return $this->response->setJSON(['success' => true, 'item' => $item]);
+        }
+
+        return $this->response->setJSON(['success' => false, 'message' => 'Failed to create checklist item.']);
+    }
+
+    public function toggle($id)
+    {
+        $item = $this->checklistModel->find($id);
+        if (!$item) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Item not found.']);
+        }
+
+        if (!$this->checkCardAccess($item['card_id'])) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Access denied.']);
+        }
+
+        $success = $this->checklistModel->toggleComplete($id);
+
+        if ($success) {
+            $item = $this->checklistModel->find($id);
+            return $this->response->setJSON(['success' => true, 'item' => $item]);
+        }
+
+        return $this->response->setJSON(['success' => false, 'message' => 'Failed to update item.']);
+    }
+
+    public function update($id)
+    {
+        $item = $this->checklistModel->find($id);
+        if (!$item) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Item not found.']);
+        }
+
+        if (!$this->checkCardAccess($item['card_id'])) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Access denied.']);
+        }
+
+        $rules = ['title' => 'required|min_length[1]|max_length[200]'];
+
+        if (!$this->validate($rules)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'errors' => $this->validator->getErrors(),
+            ]);
+        }
+
+        $updated = $this->checklistModel->update($id, [
+            'title' => $this->request->getPost('title'),
+            'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
         return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Checklist item added',
-            'item' => $this->checklistModel->find($itemId),
-            'progress' => $this->checklistModel->getProgress($cardId),
+            'success' => $updated,
+            'message' => $updated ? 'Item updated.' : 'Failed to update item.',
         ]);
     }
 
-    /**
-     * Update checklist item
-     */
-    public function update(int $id): ResponseInterface
+    public function delete($id)
     {
         $item = $this->checklistModel->find($id);
-
         if (!$item) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Item not found'], 404);
+            return $this->response->setJSON(['success' => false, 'message' => 'Item not found.']);
         }
 
-        $card = $this->cardModel->find($item['card_id']);
-        $board = $this->boardModel->find($card['board_id']);
-
-        if (!$board || $board['user_id'] !== session()->get('user_id')) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
+        if (!$this->checkCardAccess($item['card_id'])) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Access denied.']);
         }
 
-        $data = $this->request->getRawInput();
-
-        $updateData = [];
-
-        if (isset($data['text'])) {
-            $updateData['text'] = $data['text'];
-        }
-
-        if (isset($data['completed'])) {
-            $updateData['completed'] = (bool) $data['completed'];
-        }
-
-        if (isset($data['position'])) {
-            $updateData['position'] = (int) $data['position'];
-        }
-
-        if (!$this->checklistModel->update($id, $updateData)) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Failed to update item'], 500);
-        }
+        $deleted = $this->checklistModel->delete($id);
 
         return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Item updated',
-            'progress' => $this->checklistModel->getProgress($item['card_id']),
+            'success' => $deleted,
+            'message' => $deleted ? 'Item deleted.' : 'Failed to delete item.',
         ]);
     }
 
-    /**
-     * Delete checklist item
-     */
-    public function delete(int $id): ResponseInterface
+    public function reorder($cardId)
     {
-        $item = $this->checklistModel->find($id);
-
-        if (!$item) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Item not found'], 404);
+        if (!$this->checkCardAccess($cardId)) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Access denied.']);
         }
 
-        $card = $this->cardModel->find($item['card_id']);
-        $board = $this->boardModel->find($card['board_id']);
+        $itemIds = $this->request->getJSON(true)['item_ids'] ?? [];
 
-        if (!$board || $board['user_id'] !== session()->get('user_id')) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
-        }
-
-        $cardId = $item['card_id'];
-
-        if (!$this->checklistModel->delete($id)) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Failed to delete item'], 500);
-        }
+        $success = $this->checklistModel->reorder($cardId, $itemIds);
 
         return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Item deleted',
-            'progress' => $this->checklistModel->getProgress($cardId),
-        ]);
-    }
-
-    /**
-     * Toggle item completion
-     */
-    public function toggle(int $id): ResponseInterface
-    {
-        $item = $this->checklistModel->find($id);
-
-        if (!$item) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Item not found'], 404);
-        }
-
-        $card = $this->cardModel->find($item['card_id']);
-        $board = $this->boardModel->find($card['board_id']);
-
-        if (!$board || $board['user_id'] !== session()->get('user_id')) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied'], 403);
-        }
-
-        $this->checklistModel->toggle($id);
-
-        return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Item toggled',
-            'item' => $this->checklistModel->find($id),
-            'progress' => $this->checklistModel->getProgress($item['card_id']),
+            'success' => $success,
+            'message' => $success ? 'Items reordered.' : 'Failed to reorder items.',
         ]);
     }
 }

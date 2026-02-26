@@ -1,205 +1,258 @@
 # Kanban Task Manager (KTM)
 
-A personal task management web application that combines kanban board functionality with Google Calendar appointment display and Gmail integration.
+![PHP](https://img.shields.io/badge/PHP-8.4+-blue?logo=php)
+![CodeIgniter](https://img.shields.io/badge/CodeIgniter-4.7.0-red?logo=codeigniter)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue?logo=postgresql)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Status](https://img.shields.io/badge/Status-In%20Progress-yellow)
 
-![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat&logo=php&logoColor=white)
-![CodeIgniter](https://img.shields.io/badge/CodeIgniter-4.x-FF4F28?style=flat&logo=codeigniter&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=flat&logo=postgresql&logoColor=white)
-![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3-7952B3?style=flat&logo=bootstrap&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)
+A personal task management web application combining kanban board functionality with Google Calendar appointment display and Gmail integration. Provides a unified interface for managing tasks alongside scheduled events and important emails.
 
 ## Features
 
-### Kanban Board Management
-- Create, edit, and archive multiple boards
-- Fully dynamic column management (create, rename, delete, reorder)
-- Custom column names and date-based columns
-- Minimum 1 column, configurable maximum limit
-
-### Card Management
-- Create cards with rich text descriptions
-- Color coding for visual categorization
-- Multiple tags/labels per card
-- Priority levels (Low, Medium, High)
-- Optional due dates with email reminders
-- File attachments support
-- Nested checklists with completion tracking
-- Drag-and-drop between columns
-- Reordering within columns
-
-### Rich Text Editor
-- WYSIWYG editor based on TipTap
-- Content stored as Markdown in database
-- Bold, italic, underline, strikethrough
-- Ordered and unordered lists with nesting
-- Links, headings (H1-H6), code blocks with syntax highlighting
-- Tables, images, task lists, block quotes, horizontal rules
+### Core Kanban
+- Create and manage multiple kanban boards
+- Fully dynamic columns (add, rename, reorder, delete)
+- Drag-and-drop card management between columns
+- Card features:
+  - Rich text descriptions with Markdown storage
+  - Priority levels (Low, Medium, High)
+  - Due dates with overdue indicators
+  - Tags/labels for organization
+  - File attachments
+  - Checklists with progress tracking
 
 ### Google Calendar Integration
-- OAuth authentication for Google Calendar access
-- Select which calendars to display
-- Events appear as read-only cards in appropriate columns
-- Visual distinction from task cards
-- Event details modal with full information
-- Manual refresh for latest calendar data
+- OAuth 2.0 authentication
+- Connect multiple Google calendars
+- Display calendar events as cards
+- Optional calendar sync to specific boards
 
 ### Gmail Integration
-- Email-triggered task creation from important senders
-- Configure sender email addresses and domain wildcards
-- Map senders to specific columns
-- Auto-create task cards for new emails and replies
-- Direct link to open email in Gmail
-- Email preview (subject, sender, snippet)
-- Deduplication prevention for same email threads
-- Optional auto-dismiss when marked read/replied
+- Configure sender rules for automatic task creation
+- Match emails by sender and subject keywords
+- Automatic card creation for matching emails
+- Link to original Gmail messages
 
-### Mobile Experience
-- Full-width columns with single column view
-- Swipe left/right to navigate between columns
-- Touch-optimized controls (minimum 44x44px)
-- Bottom navigation for primary actions
-- Full-screen card detail modals
-- Long-press to initiate card dragging
+### User Experience
+- Dark theme only (AsteroAdmin style with Bootstrap 5.3)
+- Responsive design with mobile offcanvas navigation
+- Session-based authentication
+- Password reset via email
 
 ## Tech Stack
 
-| Component | Technology | Version |
-|-----------|-----------|---------|
-| Backend Language | PHP | 8.4 |
-| Framework | CodeIgniter | 4.x |
-| Database | PostgreSQL | 15+ |
-| UI Framework | Bootstrap | 5.3.3 |
-| Admin Template | AsteroAdmin | Latest |
-| Frontend | jQuery | 4 |
-| Rich Text Editor | TipTap | Latest |
-| Icon Library | Bootstrap Icons | Latest |
-| Drag-Drop | SortableJS | Latest |
-| Google APIs | Calendar API, Gmail API | Latest |
+| Component | Technology |
+|-----------|-----------|
+| Backend | PHP 8.4+ |
+| Framework | CodeIgniter 4.7.0 |
+| Database | PostgreSQL 15+ |
+| Frontend CSS | Bootstrap 5.3 |
+| Icons | Bootstrap Icons 1.11.3 |
+| JavaScript | jQuery 4.0 |
+| Drag & Drop | SortableJS 1.15.2 |
+| Rich Text Editor | TipTap 2.2.4 |
 
 ## Installation
 
 ### Prerequisites
+
 - PHP 8.4 or higher
 - PostgreSQL 15 or higher
-- Composer
-- Node.js (for asset builds, optional)
-- Google Cloud project with Calendar and Gmail APIs enabled
+- Composer 2.x
 
-### Setup
+### Steps
 
-1. Clone the repository
+1. Clone the repository:
    ```bash
    git clone https://github.com/btafoya/ktm.git
    cd ktm
    ```
 
-2. Install dependencies
+2. Install dependencies:
    ```bash
    composer install
    ```
 
-3. Configure environment
+3. Create environment file:
    ```bash
    cp env .env
    ```
-   Edit `.env` with your database and Google OAuth credentials:
+
+4. Configure `.env` with your database settings:
    ```ini
    database.default.hostname = localhost
    database.default.database = kanban_db
-   database.default.username = your_username
+   database.default.username = postgres
    database.default.password = your_password
    database.default.port = 5432
-
-   google.client.id = your_google_client_id
-   google.client.secret = your_google_client_secret
-   google.redirect.uri = https://yourdomain.com/auth/google/callback
+   database.default.DBDriver = Postgre
    ```
 
-4. Run database migrations
+5. Run migrations:
    ```bash
    php spark migrate
    ```
 
-5. Set permissions
+6. Start development server:
    ```bash
-   chmod -R 777 writable/
+   php spark serve
    ```
 
-6. Configure web server to point to the `public/` directory
+7. Open browser: `http://localhost:8080`
 
-## Google API Setup
+## Database Schema
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing
-3. Enable Calendar API and Gmail API
-4. Create OAuth 2.0 credentials (Web application)
-5. Add authorized redirect URI: `https://yourdomain.com/auth/google/callback`
-6. Copy Client ID and Client Secret to your `.env` file
+The application uses the following tables:
 
-Required scopes:
-- `https://www.googleapis.com/auth/calendar.readonly`
-- `https://www.googleapis.com/auth/gmail.readonly`
+- `users` - User accounts
+- `boards` - Kanban boards
+- `columns` - Board columns
+- `cards` - Task cards
+- `checklist_items` - Card checklist items
+- `tags` - User-defined tags
+- `card_tags` - Card-tag associations
+- `attachments` - File attachments
+- `google_calendars` - Google calendar sync settings
+- `google_tokens` - OAuth tokens
+- `gmail_senders` - Gmail sender rules
+- `gmail_watches` - Gmail webhook subscriptions
+- `emails` - Linked emails
+- `jobs` - Background job queue
+- `password_resets` - Password reset tokens
 
-## Usage
+## Configuration
 
-1. Register a new account
-2. Create your first kanban board
-3. Add columns to match your workflow
-4. Create cards with tasks, descriptions, and due dates
-5. Connect Google Calendar to see events alongside tasks
-6. Configure Gmail senders for email-triggered task creation
+### Google Integration
 
-## Screenshots
+To enable Google Calendar and Gmail integration:
 
-*Coming soon*
+1. Create a Google Cloud project with OAuth 2.0 credentials
+2. Enable Calendar API and Gmail API
+3. Add the client ID and secret to `.env`:
+   ```ini
+   google.client.id = your_google_client_id
+   google.client.secret = your_google_client_secret
+   google.redirect.uri = http://localhost:8080/google/callback
+   ```
 
-## Browser Support
+### Encryption
 
-| Platform | Minimum Version |
-|----------|-----------------|
-| Chrome | 90+ |
-| Firefox | 88+ |
-| Safari | 14+ |
-| Edge | 90+ |
-| Mobile Safari | 14+ |
-| Chrome Mobile | 90+ |
+Generate a secure 32-byte random key for encryption and add it to `.env`:
 
-## Security
+```ini
+encryption.key = your-generated-key-here
+```
 
-- Secure password hashing (Argon2id/bcrypt)
-- HTTP-only session cookies
-- CSRF protection on all state-changing requests
-- Server-side input validation
-- Parameterized queries (SQL injection prevention)
-- XSS prevention with output encoding
-- Rate limiting on authentication endpoints
-- Secure Google OAuth token storage and refresh
-- Minimal Gmail API scopes (read-only)
+#### Methods to generate the key:
+
+**Using PHP:**
+```bash
+php -r "echo bin2hex(random_bytes(32));"
+```
+
+**Using OpenSSL:**
+```bash
+openssl rand -hex 32
+```
+
+**Using Python:**
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+**Using Node.js:**
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'));"
+```
+
+Any of these commands will output a 64-character hexadecimal string (32 bytes), which is the required format for CodeIgniter's encryption key.
+
+## Development
+
+### Running Tests
+
+```bash
+phpunit
+```
+
+### CodeIgniter CLI
+
+```bash
+php spark list              # List all commands
+php spark migrate            # Run migrations
+php spark migrate:rollback   # Rollback migrations
+php spark cache:clear        # Clear cache
+php spark routes             # List all routes
+```
+
+## Project Structure
+
+```
+kanban-tasks-calendar/
+├── app/
+│   ├── Controllers/     # HTTP request handlers
+│   ├── Models/          # Database models
+│   ├── Views/           # HTML templates
+│   ├── Filters/         # Middleware
+│   ├── Config/          # Application configuration
+│   └── Database/
+│       └── Migrations/  # Database schema migrations
+├── public/
+│   ├── assets/
+│   │   ├── css/         # Stylesheets
+│   │   ├── js/          # JavaScript
+│   │   └── images/      # Static images
+│   └── index.php         # Front controller
+├── writable/
+│   ├── cache/           # Application cache
+│   ├── session/         # Session files
+│   ├── uploads/         # User uploads
+│   └── logs/            # Application logs
+└── vendor/              # Composer dependencies
+```
+
+## Documentation
+
+- [Project Documentation Index](docs/INDEX.md) - Comprehensive project documentation
+- [SCOPE.md](SCOPE.md) - Requirements specification
+- [DESIGN.md](DESIGN.md) - System design
+- [WORKFLOW.md](WORKFLOW.md) - Implementation workflow with progress tracking
+
+## Status
+
+Current implementation progress: **54%** (68 of 126 tasks complete)
+
+| Phase | Status |
+|-------|--------|
+| Phase 0: Prerequisites & Setup | Complete |
+| Phase 1: Foundation Layer | Complete |
+| Phase 2: Core Kanban Features | Complete |
+| Phase 3: Frontend & UI | In Progress (74%) |
+| Phase 4: Google Integration | Pending |
+| Phase 5: Background Jobs | Pending |
+| Phase 6: Mobile & Polish | Pending |
+| Phase 7: Deployment | Pending |
+
+See [WORKFLOW.md](WORKFLOW.md) for detailed progress tracking.
 
 ## Contributing
 
-Contributions are welcome! Please follow these guidelines:
+Contributions are welcome! Please:
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-Please ensure your code follows the existing code style and includes appropriate tests.
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see LICENSE file for details.
 
-## Acknowledgments
+## Author
 
-- [CodeIgniter](https://codeigniter.com/) - PHP framework
-- [Bootstrap](https://getbootstrap.com/) - UI framework
-- [AsteroAdmin](https://themeselection.com/item/astero-admin-free-bootstrap-admin-template/) - Admin template
-- [TipTap](https://tiptap.dev/) - Rich text editor
-- [SortableJS](https://sortablejs.github.io/) - Drag-and-drop library
+btafoya - [github.com/btafoya](https://github.com/btafoya)
 
 ---
 
-**Repository:** https://github.com/btafoya/ktm
+Built with [CodeIgniter 4](https://codeigniter.com)
