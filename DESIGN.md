@@ -134,7 +134,7 @@
 | Rich Text | TipTap | WYSIWYG editor |
 | Drag-Drop | SortableJS | Kanban interactions |
 | Icons | Bootstrap Icons | Iconography |
-| Web Server | Nginx | HTTP server |
+| Web Server | Caddy | HTTP server |
 | PHP FPM | PHP-FPM | PHP process manager |
 | Deployment | VPS (DigitalOcean/Linode) | Hosting environment |
 
@@ -1506,7 +1506,7 @@ export function createEditor(element, content = '') {
 ┌─────────────────────────────────────────────────────────────┐
 │                      VPS (Ubuntu 24.04)                      │
 ├─────────────────────────────────────────────────────────────┤
-│  Nginx (80, 443)                                            │
+│  Caddy (80, 443)                                            │
 │  ├── SSL/Let's Encrypt                                      │
 │  └── Reverse proxy to PHP-FPM                               │
 ├─────────────────────────────────────────────────────────────┤
@@ -1529,66 +1529,12 @@ export function createEditor(element, content = '') {
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 10.2 Nginx Configuration
+### 10.2 Caddy Configuration
 
-```nginx
-# /etc/nginx/sites-available/kanban
+```Caddy
+# /etc/caddy/Caddyfile
 
-server {
-    listen 80;
-    listen [::]:80;
-    server_name yourdomain.com;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name yourdomain.com;
-
-    root /var/www/kanban/public;
-    index index.php;
-
-    # SSL Configuration
-    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-
-    # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-
-    # CodeIgniter rewrite rules
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
-    # PHP-FPM
-    location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.4-fpm.sock;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
-        include fastcgi_params;
-    }
-
-    # Static assets caching
-    location ~* \.(css|js|jpg|png|gif|ico|svg)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-
-    # Uploads
-    location ~* ^/uploads/ {
-        alias /var/www/kanban/writable/uploads/;
-        internal;
-    }
-
-    # Deny access to hidden files
-    location ~ /\. {
-        deny all;
-    }
-}
+WRITE THIS
 ```
 
 ### 10.3 Environment Configuration

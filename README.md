@@ -60,6 +60,7 @@ A personal task management web application combining kanban board functionality 
 - PHP 8.4 or higher
 - PostgreSQL 15 or higher
 - Composer 2.x
+- Caddy Server 2.x
 
 ### Steps
 

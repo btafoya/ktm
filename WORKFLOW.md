@@ -29,7 +29,7 @@
 | 0.1.1 Install PHP 8.4 + FPM | ✅ Complete | PHP 8.4.18 installed |
 | 0.1.2 Install PostgreSQL 15+ | ✅ Complete | PostgreSQL available |
 | 0.1.3 Install Composer | ✅ Complete | Composer installed |
-| 0.1.4 Install Nginx | ⏭ Skipped | Development mode only |
+| 0.1.4 Install Caddy | ⏭ Skipped | Development mode only |
 | 0.1.5 Create PostgreSQL database | 🔄 Pending | Database needs credentials config |
 | 0.2.1 Create CI4 project | ✅ Complete | CodeIgniter 4.7.0 installed |
 | 0.2.2 Configure `.env` file | ✅ Complete | Configuration done |
@@ -249,7 +249,7 @@
 | 6.4.3 Focus management | ⏳ Pending | Focus trap |
 | 6.4.4 Screen reader | ⏳ Pending | ARIA live |
 | 6.4.5 Color contrast | ⏳ Pending | WCAG check |
-| 6.5.1 Gzip compression | ⏳ Pending | Nginx config |
+| 6.5.1 Gzip compression | ⏳ Pending | Caddy config |
 | 6.5.2 Static asset caching | ⏳ Pending | Cache headers |
 | 6.5.3 Optimize queries | ⏳ Pending | Query analysis |
 | 6.5.4 Lazy loading | ⏳ Pending | Image lazy |
@@ -271,7 +271,7 @@
 | 7.1.1 Provision VPS | ⏳ Pending | Server setup |
 | 7.1.2 Configure UFW | ⏳ Pending | Firewall |
 | 7.1.3 Install SSL | ⏳ Pending | Let's Encrypt |
-| 7.1.4 Configure Nginx | ⏳ Pending | Nginx config |
+| 7.1.4 Configure Caddy | ⏳ Pending | Caddy config |
 | 7.2.1 Git deployment | ⏳ Pending | Deploy script |
 | 7.2.2 Deploy code | ⏳ Pending | Deployment |
 | 7.2.3 Composer install | ⏳ Pending | Dependencies |
@@ -460,7 +460,7 @@ This workflow provides a structured, phased approach to implementing the Kanban 
 | 0.1.1 | Install PHP 8.4 + FPM | - | 30 min |
 | 0.1.2 | Install PostgreSQL 15+ | - | 30 min |
 | 0.1.3 | Install Composer | PHP 8.4 | 15 min |
-| 0.1.4 | Install Nginx | - | 15 min |
+| 0.1.4 | Install Caddy | - | 15 min |
 | 0.1.5 | Create PostgreSQL database | PostgreSQL | 10 min |
 
 ### 0.2 CodeIgniter 4 Project Initialization
@@ -836,7 +836,7 @@ This workflow provides a structured, phased approach to implementing the Kanban 
 
 | Task | Description | Dependencies | Estimate |
 |------|-------------|--------------|----------|
-| 6.5.1 | Enable Gzip compression | Nginx config | 15 min |
+| 6.5.1 | Enable Gzip compression | Caddy config | 15 min |
 | 6.5.2 | Configure static asset caching | 3.1.2 | 30 min |
 | 6.5.3 | Optimize database queries | 2.3.2 | 1 hr |
 | 6.5.4 | Implement lazy loading for images | 3.3.3 | 30 min |
@@ -877,7 +877,7 @@ This workflow provides a structured, phased approach to implementing the Kanban 
 | 7.1.1 | Provision VPS (DigitalOcean/Linode) | - | 15 min |
 | 7.1.2 | Configure UFW firewall | 7.1.1 | 15 min |
 | 7.1.3 | Install SSL certificate (Let's Encrypt) | 7.1.2 | 30 min |
-| 7.1.4 | Configure Nginx | 7.1.3 | 30 min |
+| 7.1.4 | Configure Caddy | 7.1.3 | 30 min |
 
 ### 7.2 Application Deployment
 
