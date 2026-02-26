@@ -13,9 +13,11 @@ class CardModel extends Model
     protected $useSoftDeletes = false;
     protected $protectFields = true;
     protected $allowedFields = [
-        'column_id', 'title', 'description', 'position',
-        'priority', 'due_date', 'is_completed',
-        'google_event_id', 'created_at', 'updated_at'
+        'column_id', 'title', 'description', 'body', 'position',
+        'priority', 'due_date', 'start_date', 'is_completed',
+        'is_calendar_event', 'is_email',
+        'google_event_id', 'external_id', 'external_source', 'external_data',
+        'created_at', 'updated_at'
     ];
 
     protected $useTimestamps = false;

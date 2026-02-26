@@ -76,15 +76,23 @@ $routes->group('google', ['filter' => 'auth'], function ($routes) {
     $routes->get('calendars', 'GoogleController::calendars');
     $routes->post('sync-calendar', 'GoogleController::syncCalendar');
     $routes->post('(:num)/toggle-sync', 'GoogleController::toggleSync/$1');
+    $routes->post('(:num)/refresh', 'GoogleController::refreshCalendar/$1');
+    $routes->delete('(:num)', 'GoogleController::deleteCalendar/$1');
     $routes->post('disconnect', 'GoogleController::disconnect');
+    $routes->get('get-connected-calendars', 'GoogleController::getConnectedCalendars');
 });
 
 $routes->group('gmail', ['filter' => 'auth'], function ($routes) {
     $routes->get('senders', 'GmailController::senders');
     $routes->post('senders', 'GmailController::createSender');
+    $routes->post('create-sender', 'GmailController::createSender');
     $routes->put('senders/(:num)', 'GmailController::updateSender/$1');
+    $routes->post('senders/(:num)', 'GmailController::updateSender/$1');
     $routes->delete('senders/(:num)', 'GmailController::deleteSender/$1');
     $routes->post('webhook', 'GmailController::testWebhook');
+    $routes->post('sync', 'GmailController::sync');
+    $routes->get('emails/(:num)', 'GmailController::getEmails/$1');
+    $routes->get('url/(:segment)', 'GmailController::getGmailUrl/$1');
 });
 
 $routes->group('settings', ['filter' => 'auth'], function ($routes) {

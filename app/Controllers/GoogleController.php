@@ -1,30 +1,32 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers;
 
 use App\Models\GoogleTokenModel;
 use App\Models\GoogleCalendarModel;
+use App\Services\GoogleAuthService;
+use App\Services\CalendarSyncService;
 
 class GoogleController extends BaseController
 {
-    protected $googleTokenModel;
-    protected $googleCalendarModel;
+    protected GoogleTokenModel $tokenModel;
+    protected GoogleCalendarModel $calendarModel;
+    protected GoogleAuthService $authService;
+    protected CalendarSyncService $calendarService;
 
     public function __construct()
     {
-        $this->googleTokenModel = new GoogleTokenModel();
-        $this->googleCalendarModel = new GoogleCalendarModel();
+        $this->tokenModel = new GoogleTokenModel();
+        $this->calendarModel = new GoogleCalendarModel();
+        $this->authService = new GoogleAuthService();
+        $this->calendarService = new CalendarSyncService();
     }
 
     public function auth()
     {
-        $clientId = getenv('google.client.id');
-        $redirectUri = getenv('google.redirect.uri');
-
-        $scope = urlencode('https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.readonly');
-
-        $authUrl = "https://accounts.google.com/o/oauth2/v2/auth?client_id={$clientId}&redirect_uri={$redirectUri}&response_type=code&scope={$scope}&access_type=offline&prompt=consent";
-
+        $authUrl = $this->authService->getAuthUrl();
         return redirect()->to($authUrl);
     }
 
@@ -36,32 +38,9 @@ class GoogleController extends BaseController
             return redirect()->to('boards')->with('error', 'Authorization failed.');
         }
 
-        $clientId = getenv('google.client.id');
-        $clientSecret = getenv('google.client.secret');
-        $redirectUri = getenv('google.redirect.uri');
+        $tokenData = $this->authService->exchangeCodeForTokens($code);
 
-        $tokenUrl = 'https://oauth2.googleapis.com/token';
-
-        $postData = http_build_query([
-            'code' => $code,
-            'client_id' => $clientId,
-            'client_secret' => $clientSecret,
-            'redirect_uri' => $redirectUri,
-            'grant_type' => 'authorization_code',
-        ]);
-
-        $ch = curl_init($tokenUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/x-www-form-urlencoded']);
-
-        $response = curl_exec($ch);
-        curl_close($ch);
-
-        $tokenData = json_decode($response, true);
-
-        if (!isset($tokenData['access_token'])) {
+        if (!$tokenData) {
             return redirect()->to('boards')->with('error', 'Failed to exchange authorization code for tokens.');
         }
 
@@ -70,30 +49,13 @@ class GoogleController extends BaseController
             return redirect()->to('auth/login');
         }
 
-        $expiresAt = date('Y-m-d H:i:s', time() + $tokenData['expires_in']);
+        $stored = $this->authService->storeTokens($userId, $tokenData);
 
-        $existingToken = $this->googleTokenModel->getForUser($userId);
-        if ($existingToken) {
-            $this->googleTokenModel->update($existingToken['id'], [
-                'access_token' => $tokenData['access_token'],
-                'refresh_token' => $tokenData['refresh_token'] ?? $existingToken['refresh_token'],
-                'expires_at' => $expiresAt,
-                'scope' => $tokenData['scope'] ?? '',
-                'updated_at' => date('Y-m-d H:i:s'),
-            ]);
-        } else {
-            $this->googleTokenModel->insert([
-                'user_id' => $userId,
-                'access_token' => $tokenData['access_token'],
-                'refresh_token' => $tokenData['refresh_token'] ?? '',
-                'expires_at' => $expiresAt,
-                'scope' => $tokenData['scope'] ?? '',
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s'),
-            ]);
+        if ($stored) {
+            return redirect()->to('boards')->with('success', 'Google account connected successfully.');
         }
 
-        return redirect()->to('boards')->with('success', 'Google account connected successfully.');
+        return redirect()->to('boards')->with('error', 'Failed to store tokens.');
     }
 
     public function calendars()
@@ -103,30 +65,11 @@ class GoogleController extends BaseController
             return $this->response->setJSON(['success' => false, 'message' => 'Not authenticated.']);
         }
 
-        $token = $this->googleTokenModel->getForUser($userId);
-        if (!$token) {
-            return $this->response->setJSON(['success' => false, 'message' => 'No Google account connected.']);
-        }
-
-        $calendarUrl = 'https://www.googleapis.com/calendar/v3/users/me/calendarList';
-
-        $ch = curl_init($calendarUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer {$token['access_token']}"]);
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($httpCode === 401) {
-            return $this->response->setJSON(['success' => false, 'message' => 'Token expired. Please reconnect.']);
-        }
-
-        $data = json_decode($response, true);
+        $calendars = $this->calendarService->fetchCalendars($userId);
 
         return $this->response->setJSON([
-            'success' => isset($data['items']),
-            'calendars' => $data['items'] ?? [],
+            'success' => $calendars !== null,
+            'calendars' => $calendars ?? [],
         ]);
     }
 
@@ -144,16 +87,32 @@ class GoogleController extends BaseController
             return $this->response->setJSON(['success' => false, 'message' => 'Missing required fields.']);
         }
 
-        $calendarId = $this->googleCalendarModel->insert([
-            'user_id' => $userId,
-            'google_calendar_id' => $googleCalendarId,
-            'name' => $name,
-            'is_primary' => $isPrimary,
-            'sync_enabled' => true,
-            'board_id' => $boardId,
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-        ]);
+        $existingCalendar = $this->calendarModel
+            ->where('user_id', $userId)
+            ->where('google_calendar_id', $googleCalendarId)
+            ->first();
+
+        if ($existingCalendar) {
+            $this->calendarModel->update($existingCalendar['id'], [
+                'name' => $name,
+                'is_primary' => $isPrimary,
+                'board_id' => $boardId,
+                'sync_enabled' => true,
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+            $calendarId = $existingCalendar['id'];
+        } else {
+            $calendarId = $this->calendarModel->insert([
+                'user_id' => $userId,
+                'google_calendar_id' => $googleCalendarId,
+                'name' => $name,
+                'is_primary' => $isPrimary,
+                'sync_enabled' => true,
+                'board_id' => $boardId,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
 
         return $this->response->setJSON([
             'success' => !!$calendarId,
@@ -164,14 +123,14 @@ class GoogleController extends BaseController
     public function toggleSync($id)
     {
         $userId = session()->get('user_id');
-        $calendar = $this->googleCalendarModel->find($id);
+        $calendar = $this->calendarModel->find($id);
 
         if (!$calendar || $calendar['user_id'] != $userId) {
             return $this->response->setJSON(['success' => false, 'message' => 'Calendar not found.']);
         }
 
         $newStatus = !$calendar['sync_enabled'];
-        $updated = $this->googleCalendarModel->update($id, [
+        $updated = $this->calendarModel->update($id, [
             'sync_enabled' => $newStatus,
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
@@ -182,19 +141,53 @@ class GoogleController extends BaseController
         ]);
     }
 
+    public function refreshCalendar($id)
+    {
+        $userId = session()->get('user_id');
+
+        $result = $this->calendarService->syncCalendarEvents($userId, $id);
+
+        return $this->response->setJSON($result);
+    }
+
+    public function deleteCalendar($id)
+    {
+        $userId = session()->get('user_id');
+        $calendar = $this->calendarModel->find($id);
+
+        if (!$calendar || $calendar['user_id'] != $userId) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Calendar not found.']);
+        }
+
+        $this->calendarService->removeCalendarEvents($userId, $id);
+        $deleted = $this->calendarModel->delete($id);
+
+        return $this->response->setJSON([
+            'success' => $deleted,
+            'message' => $deleted ? 'Calendar removed.' : 'Failed to remove calendar.',
+        ]);
+    }
+
     public function disconnect()
     {
         $userId = session()->get('user_id');
-        $token = $this->googleTokenModel->getForUser($userId);
+        $deleted = $this->authService->disconnect($userId);
 
-        if ($token) {
-            $this->googleTokenModel->delete($token['id']);
-            $this->googleCalendarModel->where('user_id', $userId)->delete();
+        if ($deleted) {
+            $this->calendarModel->where('user_id', $userId)->delete();
         }
 
         return $this->response->setJSON([
-            'success' => true,
-            'message' => 'Google account disconnected.',
+            'success' => $deleted,
+            'message' => $deleted ? 'Google account disconnected.' : 'Failed to disconnect.',
         ]);
+    }
+
+    public function getConnectedCalendars()
+    {
+        $userId = session()->get('user_id');
+        $calendars = $this->calendarModel->getForUser($userId);
+
+        return $this->response->setJSON(['calendars' => $calendars]);
     }
 }

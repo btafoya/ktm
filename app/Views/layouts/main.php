@@ -89,6 +89,8 @@
     </div>
     <?php endif; ?>
 
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;"></div>
+
     <script src="<?= base_url('assets/js/jquery.min.js') ?>"></script>
     <script src="<?= base_url('assets/js/bootstrap.bundle.min.js') ?>"></script>
     <script src="<?= base_url('assets/js/sortable.min.js') ?>"></script>

@@ -1,28 +1,36 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers;
 
 use App\Models\GmailSenderModel;
 use App\Models\BoardModel;
 use App\Models\ColumnModel;
+use App\Models\EmailModel;
+use App\Services\GmailSyncService;
 
 class GmailController extends BaseController
 {
-    protected $gmailSenderModel;
-    protected $boardModel;
-    protected $columnModel;
+    protected GmailSenderModel $senderModel;
+    protected BoardModel $boardModel;
+    protected ColumnModel $columnModel;
+    protected EmailModel $emailModel;
+    protected GmailSyncService $gmailService;
 
     public function __construct()
     {
-        $this->gmailSenderModel = new GmailSenderModel();
+        $this->senderModel = new GmailSenderModel();
         $this->boardModel = new BoardModel();
         $this->columnModel = new ColumnModel();
+        $this->emailModel = new EmailModel();
+        $this->gmailService = new GmailSyncService();
     }
 
     public function senders()
     {
         $userId = session()->get('user_id');
-        $senders = $this->gmailSenderModel->getForUser($userId);
+        $senders = $this->senderModel->getForUser($userId);
 
         return $this->response->setJSON(['senders' => $senders]);
     }
@@ -58,12 +66,12 @@ class GmailController extends BaseController
 
         if ($columnId) {
             $column = $this->columnModel->find($columnId);
-            if (!$column || $column['board_id'] != $userId) {
+            if (!$column) {
                 return $this->response->setJSON(['success' => false, 'message' => 'Invalid column.']);
             }
         }
 
-        $senderId = $this->gmailSenderModel->insert([
+        $senderId = $this->senderModel->insert([
             'user_id' => $userId,
             'email' => $this->request->getPost('email'),
             'name' => $this->request->getPost('name'),
@@ -76,7 +84,7 @@ class GmailController extends BaseController
         ]);
 
         if ($senderId) {
-            $sender = $this->gmailSenderModel->find($senderId);
+            $sender = $this->senderModel->find($senderId);
             return $this->response->setJSON(['success' => true, 'sender' => $sender]);
         }
 
@@ -85,7 +93,7 @@ class GmailController extends BaseController
 
     public function updateSender($id)
     {
-        $sender = $this->gmailSenderModel->find($id);
+        $sender = $this->senderModel->find($id);
         if (!$sender) {
             return $this->response->setJSON(['success' => false, 'message' => 'Sender rule not found.']);
         }
@@ -131,7 +139,7 @@ class GmailController extends BaseController
             $updateData['is_active'] = filter_var($isActive, FILTER_VALIDATE_BOOLEAN);
         }
 
-        $updated = $this->gmailSenderModel->update($id, $updateData);
+        $updated = $this->senderModel->update($id, $updateData);
 
         return $this->response->setJSON([
             'success' => $updated,
@@ -141,7 +149,7 @@ class GmailController extends BaseController
 
     public function deleteSender($id)
     {
-        $sender = $this->gmailSenderModel->find($id);
+        $sender = $this->senderModel->find($id);
         if (!$sender) {
             return $this->response->setJSON(['success' => false, 'message' => 'Sender rule not found.']);
         }
@@ -151,12 +159,20 @@ class GmailController extends BaseController
             return $this->response->setJSON(['success' => false, 'message' => 'Access denied.']);
         }
 
-        $deleted = $this->gmailSenderModel->delete($id);
+        $deleted = $this->senderModel->delete($id);
 
         return $this->response->setJSON([
             'success' => $deleted,
             'message' => $deleted ? 'Sender rule deleted.' : 'Failed to delete sender rule.',
         ]);
+    }
+
+    public function sync()
+    {
+        $userId = session()->get('user_id');
+        $result = $this->gmailService->fetchEmails($userId);
+
+        return $this->response->setJSON($result);
     }
 
     public function testWebhook()
@@ -174,6 +190,30 @@ class GmailController extends BaseController
 
         log_message('info', "Gmail webhook received from: {$emailAddress}");
 
+        $userId = session()->get('user_id');
+
+        if ($userId) {
+            $this->gmailService->fetchEmails($userId);
+        }
+
         return $this->response->setJSON(['status' => 'received']);
+    }
+
+    public function getEmails($cardId)
+    {
+        $emails = $this->emailModel->getForCard((int) $cardId);
+
+        foreach ($emails as &$email) {
+            $email['gmail_url'] = $this->gmailService->getGmailUrl($email['gmail_message_id']);
+        }
+
+        return $this->response->setJSON(['emails' => $emails]);
+    }
+
+    public function getGmailUrl($messageId)
+    {
+        $url = $this->gmailService->getGmailUrl($messageId);
+
+        return $this->response->setJSON(['url' => $url]);
     }
 }
