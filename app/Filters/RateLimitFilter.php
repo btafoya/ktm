@@ -44,6 +44,8 @@ class RateLimitFilter implements FilterInterface
     {
         $ip = $request->getIPAddress();
         $uri = $request->getUri()->getPath();
-        return "rate_limit:{$ip}:{$uri}";
+        // Replace reserved cache characters: {}()/\@:
+        $safeUri = str_replace(['{', '}', '(', ')', '/', '\\', '@', ':'], '_', $uri);
+        return "rate_limit_{$ip}_{$safeUri}";
     }
 }

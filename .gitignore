@@ -112,3 +112,4 @@ build/
 # Run: git check-ignore -v .env
 # It should show: ".env  .gitignore:1:*.env" (indicating it's ignored)
 composer.lock
+writable/
