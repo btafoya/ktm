@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en" data-bs-theme="dark" style="height: 100%;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="<?= base_url('assets/css/icons/bootstrap-icons.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/kanban.css') ?>">
 </head>
-<body class="bg-dark text-light">
+<body class="bg-dark text-light h-100 d-flex flex-column overflow-hidden" style="height: 100vh;">
     <?php if (session()->get('user_id')): ?>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary">
         <div class="container-fluid">
@@ -35,8 +35,8 @@
         </div>
     </nav>
 
-    <div class="d-flex">
-        <aside class="sidebar d-none d-md-block bg-dark-subtle border-end border-secondary">
+    <div class="d-flex flex-grow-1 overflow-hidden">
+        <aside class="sidebar d-none d-md-block bg-dark-subtle border-end border-secondary overflow-y-auto">
             <div class="sidebar-content p-3">
                 <a href="<?= base_url('boards/create') ?>" class="btn btn-primary w-100 mb-3">
                     <i class="bi bi-plus-lg"></i> New Board
@@ -79,7 +79,7 @@
             </div>
         </div>
 
-        <main class="main-content flex-grow-1 overflow-auto">
+        <main class="main-content flex-grow-1 overflow-hidden d-flex flex-column">
             <?= $this->renderSection('content') ?>
         </main>
     </div>

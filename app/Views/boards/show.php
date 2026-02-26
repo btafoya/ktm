@@ -1,7 +1,7 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
-<div class="container-fluid px-4 py-3">
+<div class="container-fluid px-4 py-3 flex-grow-1 d-flex flex-column overflow-hidden h-100">
     <?php if (session()->getFlashdata('success')): ?>
     <div class="alert alert-success alert-dismissible fade show">
         <?= esc(session()->getFlashdata('success')) ?>
@@ -23,11 +23,14 @@
             </a>
             <?= esc($board['name']) ?>
         </h2>
-        <div class="dropdown">
-            <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                <i class="bi bi-three-dots"></i>
+        <div class="btn-group">
+            <button class="btn btn-primary" id="addColumnBtn">
+                <i class="bi bi-plus-lg"></i> Add Column
             </button>
-            <ul class="dropdown-menu dropdown-menu-dark">
+            <button class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+                <span class="visually-hidden">Toggle dropdown</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
                 <li><a class="dropdown-item" href="<?= base_url("boards/{$board['id']}/edit") ?>">
                     <i class="bi bi-pencil"></i> Edit Board
                 </a></li>
@@ -46,10 +49,10 @@
     <p class="text-muted mb-4"><?= esc($board['description']) ?></p>
     <?php endif; ?>
 
-    <div class="kanban-board" data-board-id="<?= $board['id'] ?>">
-        <div class="kanban-columns d-flex gap-3 overflow-x-auto pb-3">
+    <div class="kanban-board flex-grow-1 d-flex flex-column overflow-hidden" data-board-id="<?= $board['id'] ?>">
+        <div class="kanban-columns flex-grow-1 overflow-auto d-flex gap-3 align-items-stretch">
             <?php foreach ($board['columns'] as $column): ?>
-            <div class="kanban-column bg-dark-subtle rounded border border-secondary"
+            <div class="kanban-column bg-dark-subtle rounded border border-secondary d-flex flex-column h-100"
                  data-column-id="<?= $column['id'] ?>">
                 <div class="column-header p-3 border-bottom border-secondary d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-2">
@@ -74,7 +77,7 @@
                         </ul>
                     </div>
                 </div>
-                <div class="column-cards p-2 min-vh-100" data-column-id="<?= $column['id'] ?>">
+                <div class="column-cards p-2 flex-grow-1 overflow-y-auto" data-column-id="<?= $column['id'] ?>">
                     <?php foreach ($column['cards'] as $card): ?>
                     <?= view('cards/_card', ['card' => $card, 'column' => $column]) ?>
                     <?php endforeach; ?>
@@ -86,12 +89,6 @@
                 </div>
             </div>
             <?php endforeach; ?>
-
-            <div class="kanban-column-new">
-                <button class="btn btn-outline-light d-flex align-items-center gap-2 p-3 w-100 h-100" id="addColumnBtn">
-                    <i class="bi bi-plus-lg"></i> Add Column
-                </button>
-            </div>
         </div>
     </div>
 </div>
