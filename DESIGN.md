@@ -1531,10 +1531,11 @@ export function createEditor(element, content = '') {
 
 ### 10.2 Caddy Configuration
 
+#### TODO
+
 ```Caddy
 # /etc/caddy/Caddyfile
 
-WRITE THIS
 ```
 
 ### 10.3 Environment Configuration
