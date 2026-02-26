@@ -123,6 +123,10 @@ $(document).ready(function() {
                 .map(el => $(el).data('column-id'));
             $.post('<?= base_url("boards/{$board['id']}/reorder-columns") ?>', {
                 column_ids: JSON.stringify(columnIds)
+            }).fail(function(xhr) {
+                const msg = xhr.responseJSON?.message || 'Failed to reorder columns.';
+                showAlert(msg, 'danger');
+                evt.item.parentNode.insertBefore(evt.item, evt.from.children[evt.oldIndex]);
             });
         }
     });
@@ -133,7 +137,13 @@ $(document).ready(function() {
             group: 'cards',
             animation: 150,
             ghostClass: 'sortable-ghost',
+            delay: 100,
+            delayOnTouchOnly: true,
+            onStart: function(evt) {
+                $(evt.item).addClass('dragging');
+            },
             onEnd: function(evt) {
+                $(evt.item).removeClass('dragging');
                 const targetColumn = $(evt.to).closest('.kanban-column');
                 const columnId = targetColumn.data('column-id');
                 const cardIds = Array.from(evt.to.querySelectorAll('.kanban-card'))
@@ -142,6 +152,17 @@ $(document).ready(function() {
                     card_id: $(evt.item).data('card-id'),
                     column_id: columnId,
                     card_ids: JSON.stringify(cardIds)
+                }).fail(function(xhr) {
+                    const msg = xhr.responseJSON?.message || 'Failed to move card.';
+                    showAlert(msg, 'danger');
+                    if (evt.to !== evt.from) {
+                        const originalPosition = evt.oldIndex;
+                        if (originalPosition >= 0 && originalPosition < evt.from.children.length) {
+                            evt.from.insertBefore(evt.item, evt.from.children[originalPosition]);
+                        } else {
+                            evt.from.appendChild(evt.item);
+                        }
+                    }
                 });
             }
         });
@@ -203,6 +224,12 @@ $(document).ready(function() {
 
     function showCardForm(columnId, cardData = null) {
         const isEdit = !!cardData;
+
+        if (window.tiptapEditorInstance) {
+            window.tiptapEditorInstance.destroy();
+            window.tiptapEditorInstance = null;
+        }
+
         $('#cardModalTitle').text(isEdit ? 'Edit Card' : 'New Card');
         const bodyHtml = `
             <form id="cardForm">
@@ -215,8 +242,9 @@ $(document).ready(function() {
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Description</label>
-                    <textarea class="form-control bg-dark-subtle text-light border-secondary"
-                              name="description" rows="4">${cardData ? cardData.description || '' : ''}</textarea>
+                    <input type="hidden" name="description" id="cardDescription">
+                    <div id="editorToolbar"></div>
+                    <div id="editorContent"></div>
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -243,6 +271,21 @@ $(document).ready(function() {
         const modal = new bootstrap.Modal(document.getElementById('cardModal'));
         modal.show();
 
+        setTimeout(() => {
+            window.tiptapEditorInstance = TiptapEditor.init('#editorContent', {
+                content: cardData?.description || '',
+                onUpdate: () => {
+                    const markdown = TiptapEditor.getContent();
+                    $('#cardDescription').val(markdown);
+                }
+            });
+
+            TiptapEditor.createToolbar(document.getElementById('editorToolbar'));
+
+            const markdown = TiptapEditor.getContent();
+            $('#cardDescription').val(markdown);
+        }, 100);
+
         $('#saveCardBtn').on('click', function() {
             const form = $('#cardForm')[0];
             if (!form.checkValidity()) {
@@ -261,12 +304,38 @@ $(document).ready(function() {
                     url: `<?= base_url('cards') ?>/${cardData.id}`,
                     method: 'PUT',
                     data: data,
-                    success: () => location.reload()
+                    success: () => {
+                        if (window.tiptapEditorInstance) {
+                            window.tiptapEditorInstance.destroy();
+                            window.tiptapEditorInstance = null;
+                        }
+                        location.reload();
+                    },
+                    error: function(xhr) {
+                        const msg = xhr.responseJSON?.message || 'Failed to update card.';
+                        showAlert(msg, 'danger');
+                    }
                 });
             } else {
-                $.post('<?= base_url('cards') ?>', data, () => location.reload());
+                $.post('<?= base_url('cards') ?>', data, () => {
+                    if (window.tiptapEditorInstance) {
+                        window.tiptapEditorInstance.destroy();
+                        window.tiptapEditorInstance = null;
+                    }
+                    location.reload();
+                }).fail(function(xhr) {
+                    const msg = xhr.responseJSON?.message || 'Failed to create card.';
+                    showAlert(msg, 'danger');
+                });
             }
         });
+
+        document.getElementById('cardModal').addEventListener('hidden.bs.modal', function() {
+            if (window.tiptapEditorInstance) {
+                window.tiptapEditorInstance.destroy();
+                window.tiptapEditorInstance = null;
+            }
+        }, { once: true });
     }
 
     function editColumn(columnId, name, color) {

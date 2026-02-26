@@ -23,7 +23,7 @@
                 </div>
                 <div class="card-body">
                     <?php if ($card['description']): ?>
-                    <div class="card-text mb-3"><?= $card['description'] ?></div>
+                    <div class="card-text mb-3 markdown-content"><?= $card['description'] ?></div>
                     <?php endif; ?>
 
                     <?php if ($card['due_date']): ?>
@@ -148,49 +148,87 @@
 
 <?= $this->section('scripts') ?>
 <script>
-const cardId = <?= $card['id'] ?>;
+$(document).ready(function() {
+    const cardId = <?= $card['id'] ?>;
 
-$('[data-action="toggle-complete"]').on('click', function() {
-    $.ajax({
-        url: `<?= base_url('cards') ?>/${cardId}`,
-        method: 'PUT',
-        data: { is_completed: !<?= $card['is_completed'] ? 1 : 0 ?> },
-        success: () => location.reload()
-    });
-});
+    if (typeof marked !== 'undefined') {
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            headerIds: false,
+            mangle: false
+        });
 
-$('#addChecklistItemBtn').on('click', function() {
-    const title = $('#newChecklistItem').val().trim();
-    if (title) {
-        $.post('<?= base_url('checklists') ?>', {
-            card_id: cardId,
-            title: title
-        }, () => location.reload());
-    }
-});
-
-$('.checklist-toggle').on('change', function() {
-    const itemId = $(this).closest('li').data('item-id');
-    $.post(`<?= base_url('checklists') ?>/${itemId}/toggle`, () => location.reload());
-});
-
-$('[data-action="delete-item"]').on('click', function() {
-    const itemId = $(this).closest('li').data('item-id');
-    $.ajax({
-        url: `<?= base_url('checklists') ?>/${itemId}`,
-        method: 'DELETE',
-        success: () => location.reload()
-    });
-});
-
-$('[data-action="delete-card"]').on('click', function() {
-    if (confirm('Are you sure you want to delete this card?')) {
-        $.ajax({
-            url: `<?= base_url('cards') ?>/${cardId}`,
-            method: 'DELETE',
-            success: () => window.location.href = `<?= base_url("boards/{$card['board_id']}") ?>`
+        $('.markdown-content').each(function() {
+            const markdown = $(this).text();
+            $(this).html(marked.parse(markdown));
         });
     }
+});
+
+    $('[data-action="toggle-complete"]').on('click', function() {
+        $.ajax({
+            url: `<?= base_url('cards') ?>/${cardId}`,
+            method: 'PUT',
+            data: { is_completed: !<?= $card['is_completed'] ? 1 : 0 ?> },
+            success: () => location.reload(),
+            error: function(xhr) {
+                const msg = xhr.responseJSON?.message || 'Failed to update card.';
+                showAlert(msg, 'danger');
+            }
+        });
+    });
+
+    $('#addChecklistItemBtn').on('click', function() {
+        const title = $('#newChecklistItem').val().trim();
+        if (title) {
+            $.post('<?= base_url('checklists') ?>', {
+                card_id: cardId,
+                title: title
+            }, () => location.reload()).fail(function(xhr) {
+                const msg = xhr.responseJSON?.message || 'Failed to add checklist item.';
+                showAlert(msg, 'danger');
+            });
+        }
+    });
+
+    $('.checklist-toggle').on('change', function() {
+        const itemId = $(this).closest('li').data('item-id');
+        $.post(`<?= base_url('checklists') ?>/${itemId}/toggle`, () => location.reload())
+            .fail(function(xhr) {
+                const msg = xhr.responseJSON?.message || 'Failed to toggle item.';
+                showAlert(msg, 'danger');
+            });
+    });
+
+    $('[data-action="delete-item"]').on('click', function() {
+        const itemId = $(this).closest('li').data('item-id');
+        if (confirm('Delete this checklist item?')) {
+            $.ajax({
+                url: `<?= base_url('checklists') ?>/${itemId}`,
+                method: 'DELETE',
+                success: () => location.reload(),
+                error: function(xhr) {
+                    const msg = xhr.responseJSON?.message || 'Failed to delete item.';
+                    showAlert(msg, 'danger');
+                }
+            });
+        }
+    });
+
+    $('[data-action="delete-card"]').on('click', function() {
+        if (confirm('Are you sure you want to delete this card?')) {
+            $.ajax({
+                url: `<?= base_url('cards') ?>/${cardId}`,
+                method: 'DELETE',
+                success: () => window.location.href = `<?= base_url("boards/{$card['board_id']}") ?>`,
+                error: function(xhr) {
+                    const msg = xhr.responseJSON?.message || 'Failed to delete card.';
+                    showAlert(msg, 'danger');
+                }
+            });
+        }
+    });
 });
 </script>
 <?= $this->endSection() ?>
