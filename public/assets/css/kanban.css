@@ -65,6 +65,7 @@ body {
 }
 
 .kanban-card {
+    position: relative;
     cursor: pointer;
     transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
