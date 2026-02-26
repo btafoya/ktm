@@ -16,7 +16,16 @@
                     <h5>Edit Board</h5>
                 </div>
                 <div class="card-body">
-                    <?= validation_list_errors('alert alert-danger') ?>
+                    <?php $validation = \Config\Services::validation(); ?>
+                    <?php if ($validation->getErrors()): ?>
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            <?php foreach ($validation->getErrors() as $error): ?>
+                            <li><?= esc($error) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                    <?php endif; ?>
 
                     <form action="<?= base_url("boards/{$board['id']}/edit") ?>" method="post">
                         <div class="mb-3">

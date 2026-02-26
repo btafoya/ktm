@@ -21,7 +21,16 @@
                     </div>
                     <?php endif; ?>
 
-                    <?= validation_list_errors('alert alert-danger') ?>
+                    <?php $validation = \Config\Services::validation(); ?>
+                    <?php if ($validation->getErrors()): ?>
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            <?php foreach ($validation->getErrors() as $error): ?>
+                            <li><?= esc($error) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                    <?php endif; ?>
 
                     <form action="<?= base_url('auth/forgot-password') ?>" method="post">
                         <div class="mb-3">
