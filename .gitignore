@@ -88,6 +88,8 @@ bower_components/
 .cache/
 dist/
 build/
+tiptap-entry.js
+build-tiptap.mjs
 
 # =============================================================================
 # SSL Certificates

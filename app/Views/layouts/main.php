@@ -94,10 +94,8 @@
     <script src="<?= base_url('assets/js/sortable.min.js') ?>"></script>
     <script src="<?= base_url('assets/js/marked.min.js') ?>"></script>
     <script src="<?= base_url('assets/js/turndown.min.js') ?>"></script>
-    <script src="<?= base_url('assets/js/tiptap/core.js') ?>"></script>
-    <script src="<?= base_url('assets/js/tiptap/starter-kit.js') ?>"></script>
-    <script src="<?= base_url('assets/js/tiptap/task-list.js') ?>"></script>
-    <script src="<?= base_url('assets/js/tiptap/task-item.js') ?>"></script>
+    <script src="<?= base_url('assets/js/tiptap.min.js') ?>"></script>
+    <script src="<?= base_url('assets/js/tiptap-wrapper.js') ?>"></script>
     <script src="<?= base_url('assets/js/tiptap/editor.js') ?>"></script>
     <script src="<?= base_url('assets/js/app.js') ?>"></script>
     <?= $this->renderSection('scripts') ?>
