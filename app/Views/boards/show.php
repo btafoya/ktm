@@ -170,6 +170,54 @@ $(document).ready(function() {
         showCardForm(columnId);
     });
 
+    // Click on card to edit
+    $('.kanban-board').on('click', '.kanban-card', function(e) {
+        // Don't trigger if clicking on the complete toggle button
+        if ($(e.target).closest('[data-action="toggle-complete"]').length) {
+            return;
+        }
+        const cardId = $(this).data('card-id');
+        // Fetch card data for editing
+        $.ajax({
+            url: `<?= base_url('cards') ?>/${cardId}`,
+            method: 'GET',
+            success: function(data) {
+                const cardData = {
+                    id: data.id,
+                    title: data.title,
+                    description: data.description,
+                    priority: data.priority,
+                    due_date: data.due_date ? data.due_date.replace(' ', 'T').slice(0, 16) : ''
+                };
+                showCardForm(data.column_id, cardData);
+            },
+            error: function() {
+                showAlert('Failed to load card data.', 'danger');
+            }
+        });
+    });
+
+    // Toggle complete button
+    $('.kanban-board').on('click', '[data-action="toggle-complete"]', function(e) {
+        e.stopPropagation();
+        const card = $(this).closest('.kanban-card');
+        const cardId = card.data('card-id');
+        const icon = $(this).find('i');
+        const isCompleted = icon.hasClass('bi-check-circle-fill');
+
+        $.ajax({
+            url: `<?= base_url('cards') ?>/${cardId}`,
+            method: 'PUT',
+            data: { is_completed: !isCompleted },
+            success: function() {
+                location.reload();
+            },
+            error: function() {
+                showAlert('Failed to update card.', 'danger');
+            }
+        });
+    });
+
     $('.kanban-board').on('click', '[data-action="edit-column"]', function(e) {
         e.preventDefault();
         const columnId = $(this).closest('.kanban-column').data('column-id');

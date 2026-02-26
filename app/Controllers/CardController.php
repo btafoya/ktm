@@ -23,7 +23,14 @@ class CardController extends BaseController
     {
         $card = $this->cardModel->getWithDetails($id);
         if (!$card) {
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON(['success' => false, 'message' => 'Card not found.']);
+            }
             return redirect()->back()->with('error', 'Card not found.');
+        }
+
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON(['success' => true] + $card);
         }
 
         return view('cards/show', ['card' => $card]);
@@ -172,10 +179,10 @@ class CardController extends BaseController
 
     public function move()
     {
-        $json = $this->request->getJSON(true);
-        $cardId = $json['card_id'] ?? null;
-        $targetColumnId = $json['column_id'] ?? null;
-        $cardIds = $json['card_ids'] ?? [];
+        $cardId = $this->request->getPost('card_id');
+        $targetColumnId = $this->request->getPost('column_id');
+        $cardIdsString = $this->request->getPost('card_ids');
+        $cardIds = $cardIdsString ? json_decode($cardIdsString, true) : [];
 
         if (!$cardId || !$targetColumnId) {
             return $this->response->setJSON(['success' => false, 'message' => 'Missing required parameters.']);
