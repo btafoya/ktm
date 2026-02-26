@@ -3,24 +3,6 @@ window.TiptapEditor = (function() {
     let editorElement = null;
 
     function initEditor(selector, options = {}) {
-        const defaultOptions = {
-            content: options.content || '',
-            editable: true,
-            extensions: [
-                StarterKit,
-                TaskList,
-                TaskItem.configure({
-                    nested: true,
-                }),
-            ],
-            editorProps: {
-                attributes: {
-                    class: 'tiptap-editor-content prose prose-invert max-w-none bg-dark-subtle text-light p-3 rounded border border-secondary min-h-[150px]',
-                },
-            },
-            onUpdate: options.onUpdate || (() => {}),
-        };
-
         editorElement = typeof selector === 'string'
             ? document.querySelector(selector)
             : selector;
@@ -29,6 +11,61 @@ window.TiptapEditor = (function() {
             console.error('TipTap editor element not found:', selector);
             return null;
         }
+
+        // Access extensions from global scope to avoid closure capturing undefined
+        const extensions = [
+            window.StarterKit,
+            window.TaskList,
+            window.TaskItem.configure({
+                nested: true,
+            }),
+            window.ImageExtension.configure({
+                inline: true,
+                allowBase64: true,
+            }),
+        ];
+
+        const defaultOptions = {
+            element: editorElement,
+            content: options.content || '',
+            editable: true,
+            extensions: extensions,
+            editorProps: {
+                attributes: {
+                    class: 'tiptap-editor-content prose prose-invert max-w-none bg-dark-subtle text-light p-3 rounded border border-secondary min-h-[150px]',
+                },
+                handlePaste: function(view, event, slice) {
+                    const items = Array.from(event.clipboardData?.items || []);
+                    const imageItem = items.find(item => item.type.indexOf('image') !== -1);
+
+                    if (imageItem) {
+                        event.preventDefault();
+                        const file = imageItem.getAsFile();
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                const base64 = e.target.result;
+                                const { state, dispatch } = view;
+                                const { $from } = state.selection;
+                                view.dispatch(
+                                    state.tr.replaceSelectionWith(
+                                        state.schema.nodes.image.create({
+                                            src: base64,
+                                            alt: file.name || 'Pasted image',
+                                            class: 'img-fluid',
+                                        })
+                                    )
+                                );
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                        return true;
+                    }
+                    return false;
+                },
+            },
+            onUpdate: options.onUpdate || (() => {}),
+        };
 
         editor = new Editor(defaultOptions);
 
@@ -104,6 +141,24 @@ window.TiptapEditor = (function() {
         }
     }
 
+    function handleImageInsert() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const base64 = e.target.result;
+                    editor.chain().focus().setImage({ src: base64, alt: file.name, class: 'img-fluid' }).run();
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+        input.click();
+    }
+
     function createToolbar(targetElement) {
         const toolbar = document.createElement('div');
         toolbar.className = 'tiptap-toolbar d-flex gap-2 mb-2 flex-wrap';
@@ -167,7 +222,7 @@ window.TiptapEditor = (function() {
             },
             { divider: true },
             {
-                icon: 'blockquote',
+                icon: 'blockquote-left',
                 title: 'Blockquote',
                 action: () => editor.chain().focus().toggleBlockquote().run(),
                 isActive: () => editor.isActive('blockquote'),
@@ -179,6 +234,12 @@ window.TiptapEditor = (function() {
                 isActive: () => editor.isActive('codeBlock'),
             },
             { divider: true },
+            {
+                icon: 'image',
+                title: 'Image',
+                action: handleImageInsert,
+                isActive: () => false,
+            },
             {
                 icon: 'link-45deg',
                 title: 'Link',

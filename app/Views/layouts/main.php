@@ -96,6 +96,7 @@
     <script src="<?= base_url('assets/js/turndown.min.js') ?>"></script>
     <script src="<?= base_url('assets/js/tiptap.min.js') ?>"></script>
     <script src="<?= base_url('assets/js/tiptap-wrapper.js') ?>"></script>
+    <script src="<?= base_url('assets/js/tiptap/image.js') ?>"></script>
     <script src="<?= base_url('assets/js/tiptap/editor.js') ?>"></script>
     <script src="<?= base_url('assets/js/app.js') ?>"></script>
     <?= $this->renderSection('scripts') ?>
