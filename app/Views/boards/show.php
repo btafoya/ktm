@@ -318,7 +318,6 @@ $(document).ready(function() {
 
         setTimeout(() => {
             window.tiptapEditorInstance = TiptapEditor.init('#editorContent', {
-                content: cardData?.description || '',
                 onUpdate: () => {
                     const markdown = TiptapEditor.getContent();
                     $('#cardDescription').val(markdown);
@@ -327,6 +326,12 @@ $(document).ready(function() {
 
             TiptapEditor.createToolbar(document.getElementById('editorToolbar'));
 
+            // Set content using setContent which converts Markdown to HTML properly
+            if (cardData?.description) {
+                TiptapEditor.setContent(cardData.description);
+            }
+
+            // Initialize the hidden input with current Markdown
             const markdown = TiptapEditor.getContent();
             $('#cardDescription').val(markdown);
         }, 100);

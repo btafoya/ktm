@@ -17,7 +17,15 @@ $isOverdue = $card['due_date'] && strtotime($card['due_date']) < time() && !$car
     <div class="card-title small mb-1"><?= esc($card['title']) ?></div>
 
     <?php if (!empty($card['description'])): ?>
-    <div class="card-description text-muted small text-truncate"><?= strip_tags($card['description']) ?></div>
+    <?php
+    // Strip image references from Markdown: ![alt](url) -> empty
+    $cleanDesc = preg_replace('/!\[([^\]]*)\]\([^)]+\)/', '', $card['description']);
+    $cleanDesc = strip_tags($cleanDesc);
+    $cleanDesc = trim($cleanDesc);
+    ?>
+    <?php if (!empty($cleanDesc)): ?>
+    <div class="card-description text-muted small text-truncate"><?= esc($cleanDesc) ?></div>
+    <?php endif; ?>
     <?php endif; ?>
 
     <div class="card-meta d-flex justify-content-between align-items-center mt-2">
