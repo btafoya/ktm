@@ -3,10 +3,10 @@
 <?= $this->section('content') ?>
 <div class="container auth-container">
     <div class="row justify-content-center">
-        <div class="col-md-5">
+        <div class="col">
             <div class="card bg-dark border-secondary">
                 <div class="card-header bg-dark border-secondary text-center">
-                    <h4><i class="bi bi-kanban"></i> Kanban Task Manager</h4>
+                    <h4>Kanban Task Manager</h4>
                 </div>
                 <div class="card-body">
                     <?php if (session()->getFlashdata('error')): ?>

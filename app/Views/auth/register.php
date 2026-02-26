@@ -3,7 +3,7 @@
 <?= $this->section('content') ?>
 <div class="container auth-container">
     <div class="row justify-content-center">
-        <div class="col-md-5">
+        <div class="col">
             <div class="card bg-dark border-secondary">
                 <div class="card-header bg-dark border-secondary text-center">
                     <h4>Create Account</h4>
