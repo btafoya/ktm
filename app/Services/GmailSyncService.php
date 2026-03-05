@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\GoogleAuthService;
 use App\Models\GmailSenderModel;
+use App\Models\GmailWatchModel;
 use App\Models\EmailModel;
 use App\Models\BoardModel;
 use App\Models\ColumnModel;
@@ -16,6 +16,7 @@ class GmailSyncService
 {
     private GoogleAuthService $authService;
     private GmailSenderModel $senderModel;
+    private GmailWatchModel $watchModel;
     private EmailModel $emailModel;
     private BoardModel $boardModel;
     private ColumnModel $columnModel;
@@ -26,6 +27,7 @@ class GmailSyncService
     {
         $this->authService = new GoogleAuthService();
         $this->senderModel = new GmailSenderModel();
+        $this->watchModel = new GmailWatchModel();
         $this->emailModel = new EmailModel();
         $this->boardModel = new BoardModel();
         $this->columnModel = new ColumnModel();
@@ -299,25 +301,39 @@ class GmailSyncService
     public function setWatch(int $userId): ?array
     {
         if (!$this->authService->hasValidToken($userId)) {
-            return null;
+            return ['success' => false, 'message' => 'Google account not connected.'];
         }
 
         $token = $this->authService->getAccessToken($userId);
 
         if (!$token) {
-            return null;
+            return ['success' => false, 'message' => 'Failed to get access token.'];
         }
 
-        $webhookUrl = getenv('app.baseURL') . '/gmail/webhook';
-        $secret = getenv('gmail.webhook.secret');
+        $topicName = getenv('gmail.pubsub.topic');
+        if (empty($topicName)) {
+            return ['success' => false, 'message' => 'Gmail Pub/Sub topic not configured.'];
+        }
 
         $watchData = [
-            'topicName' => getenv('gmail.pubsub.topic'),
+            'topicName' => $topicName,
             'labelIds' => ['INBOX'],
         ];
 
-        if ($webhookUrl) {
-            $watchData['labelIds'] = ['INBOX'];
+        $historyUrl = 'https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=1';
+
+        $ch = curl_init($historyUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer {$token}"]);
+        curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode === 401) {
+            $token = $this->authService->refreshAccessToken($userId);
+            if (!$token) {
+                return ['success' => false, 'message' => 'Failed to refresh token.'];
+            }
         }
 
         $watchUrl = 'https://www.googleapis.com/gmail/v1/users/me/watch';
@@ -334,7 +350,31 @@ class GmailSyncService
         $response = curl_exec($ch);
         curl_close($ch);
 
-        return json_decode($response, true);
+        $watchResult = json_decode($response, true);
+
+        if (!isset($watchResult['id'])) {
+            return ['success' => false, 'message' => 'Failed to set watch: ' . ($watchResult['error']['message'] ?? 'Unknown error')];
+        }
+
+        $this->watchModel->createWatch(
+            $userId,
+            $watchResult['id'],
+            $watchResult['historyId'] ?? '0',
+            $watchResult['topicResourceId'] ?? '',
+            (int) $watchResult['expiration']
+        );
+
+        $expirationDate = date('Y-m-d H:i:s', (int) ($watchResult['expiration'] / 1000));
+
+        $jobService = new JobService();
+        $renewalSeconds = ((int) ($watchResult['expiration'] / 1000)) - time() - 86400;
+        $jobService->dispatchLater('renew_gmail_watch', ['user_id' => $userId], $renewalSeconds);
+
+        return [
+            'success' => true,
+            'message' => 'Gmail watch enabled successfully.',
+            'expires' => $expirationDate,
+        ];
     }
 
     public function stopWatch(int $userId): bool
@@ -355,6 +395,57 @@ class GmailSyncService
         curl_exec($ch);
         curl_close($ch);
 
+        $this->watchModel->deactivate($userId);
+
         return true;
+    }
+
+    public function handleWebhook(array $webhookData): array
+    {
+        $emailAddress = $webhookData['emailAddress'] ?? '';
+
+        log_message('info', "Gmail webhook received from: {$emailAddress}");
+
+        $historyId = $webhookData['historyId'] ?? '';
+
+        if (empty($historyId)) {
+            return ['success' => false, 'message' => 'No history ID in webhook.'];
+        }
+
+        $watchModel = new GmailWatchModel();
+        $userId = null;
+
+        $activeWatches = $watchModel->where('is_active', true)->findAll();
+        foreach ($activeWatches as $watch) {
+            if ($watch['topic_resource_id'] === $webhookData['topicResourceId'] ?? '') {
+                $userId = (int) $watch['user_id'];
+                $watchModel->updateHistoryId($watch['user_id'], $historyId);
+                break;
+            }
+        }
+
+        if (!$userId) {
+            return ['success' => false, 'message' => 'No matching watch found.'];
+        }
+
+        $jobService = new JobService();
+        $jobService->dispatch('gmail_sync', ['user_id' => $userId]);
+
+        return ['success' => true, 'message' => 'Webhook processed, sync job queued.'];
+    }
+
+    public function renewExpiredWatches(): array
+    {
+        $expiredWatches = $this->watchModel->getExpiredWatches();
+        $renewed = 0;
+
+        foreach ($expiredWatches as $watch) {
+            $result = $this->setWatch((int) $watch['user_id']);
+            if ($result['success'] ?? false) {
+                $renewed++;
+            }
+        }
+
+        return ['renewed' => $renewed, 'total' => count($expiredWatches)];
     }
 }

@@ -175,7 +175,7 @@ class GmailController extends BaseController
         return $this->response->setJSON($result);
     }
 
-    public function testWebhook()
+    public function webhook()
     {
         $secret = getenv('gmail.webhook.secret');
         $receivedSecret = $this->request->getHeaderLine('X-Goog-Channel-Token');
@@ -186,17 +186,50 @@ class GmailController extends BaseController
         }
 
         $messageData = $this->request->getJSON(true);
-        $emailAddress = $messageData['emailAddress'] ?? '';
 
-        log_message('info', "Gmail webhook received from: {$emailAddress}");
-
-        $userId = session()->get('user_id');
-
-        if ($userId) {
-            $this->gmailService->fetchEmails($userId);
+        if (empty($messageData)) {
+            $rawInput = $this->request->getRawInput();
+            $messageData = $rawInput;
         }
 
-        return $this->response->setJSON(['status' => 'received']);
+        $result = $this->gmailService->handleWebhook($messageData);
+
+        if (!$result['success']) {
+            log_message('error', 'Gmail webhook error: ' . $result['message']);
+        }
+
+        return $this->response->setStatusCode(200);
+    }
+
+    public function enableWatch()
+    {
+        $userId = session()->get('user_id');
+        $result = $this->gmailService->setWatch($userId);
+
+        return $this->response->setJSON($result);
+    }
+
+    public function disableWatch()
+    {
+        $userId = session()->get('user_id');
+        $success = $this->gmailService->stopWatch($userId);
+
+        return $this->response->setJSON([
+            'success' => $success,
+            'message' => $success ? 'Gmail watch disabled.' : 'Failed to disable Gmail watch.'
+        ]);
+    }
+
+    public function getWatchStatus()
+    {
+        $userId = session()->get('user_id');
+        $watchModel = new \App\Models\GmailWatchModel();
+        $watch = $watchModel->getForUser($userId);
+
+        return $this->response->setJSON([
+            'enabled' => $watch !== null,
+            'watch' => $watch,
+        ]);
     }
 
     public function getEmails($cardId)

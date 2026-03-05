@@ -91,9 +91,14 @@ $routes->group('gmail', ['filter' => 'auth'], function ($routes) {
     $routes->delete('senders/(:num)', 'GmailController::deleteSender/$1');
     $routes->post('webhook', 'GmailController::testWebhook');
     $routes->post('sync', 'GmailController::sync');
+    $routes->post('watch/enable', 'GmailController::enableWatch');
+    $routes->post('watch/disable', 'GmailController::disableWatch');
+    $routes->get('watch/status', 'GmailController::getWatchStatus');
     $routes->get('emails/(:num)', 'GmailController::getEmails/$1');
     $routes->get('url/(:segment)', 'GmailController::getGmailUrl/$1');
 });
+
+$routes->post('gmail/webhook', 'GmailController::webhook');
 
 $routes->group('settings', ['filter' => 'auth'], function ($routes) {
     $routes->get('/', 'SettingsController::index');

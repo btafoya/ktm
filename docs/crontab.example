@@ -1,0 +1,26 @@
+# Crontab for Kanban Task Manager
+# Add these entries to crontab using: crontab -e
+# Adjust paths as needed for your installation
+
+# Environment
+# SHELL=/bin/bash
+# PATH=/usr/local/bin:/usr/bin:/bin
+# HOME=/path/to/your/project
+
+# Refresh Google tokens (every hour)
+0 * * * * cd /path/to/your/project && php spark tokens:refresh >> /var/log/kanban/tokens.log 2>&1
+
+# Sync Gmail emails (every 15 minutes)
+*/15 * * * * cd /path/to/your/project && php spark sync:gmail >> /var/log/kanban/gmail-sync.log 2>&1
+
+# Sync Calendar events (every hour)
+0 * * * * cd /path/to/your/project && php spark sync:calendar --all >> /var/log/kanban/calendar-sync.log 2>&1
+
+# Send due date reminders (daily at 8 AM)
+0 8 * * * cd /path/to/your/project && php spark reminders:send >> /var/log/kanban/reminders.log 2>&1
+
+# Clean up old jobs (daily at 3 AM)
+0 3 * * * cd /path/to/your/project && php spark jobs:cleanup --days=30 >> /var/log/kanban/cleanup.log 2>&1
+
+# Renew expired Gmail watches (daily at 4 AM)
+0 4 * * * cd /path/to/your/project && php spark gmail:renew-watches >> /var/log/kanban/watch-renewal.log 2>&1

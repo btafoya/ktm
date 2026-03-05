@@ -39,4 +39,32 @@ class GmailWatchModel extends Model
         return $this->where('user_id', $userId)
             ->update(['is_active' => false]);
     }
+
+    public function createWatch(int $userId, string $watchId, string $historyId, string $topicResourceId, int $expirationTimestamp): int
+    {
+        $this->deactivate($userId);
+
+        return $this->insert([
+            'user_id' => $userId,
+            'watch_id' => $watchId,
+            'history_id' => $historyId,
+            'topic_resource_id' => $topicResourceId,
+            'expiration' => date('Y-m-d H:i:s', $expirationTimestamp / 1000),
+            'is_active' => true,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public function getExpiredWatches(): array
+    {
+        return $this->where('is_active', true)
+            ->where('expiration <', date('Y-m-d H:i:s'))
+            ->findAll();
+    }
+
+    public function deleteByUserId(int $userId): bool
+    {
+        return $this->where('user_id', $userId)->delete();
+    }
 }

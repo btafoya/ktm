@@ -4,7 +4,7 @@
 ![CodeIgniter](https://img.shields.io/badge/CodeIgniter-4.7.0-red?logo=codeigniter)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue?logo=postgresql)
 ![License](https://img.shields.io/badge/License-MIT-green)
-![Status](https://img.shields.io/badge/Status-In%20Progress-yellow)
+![Status](https://img.shields.io/badge/Status-75%25%20Complete-brightgreen)
 
 A personal task management web application combining kanban board functionality with Google Calendar appointment display and Gmail integration. Provides a unified interface for managing tasks alongside scheduled events and important emails.
 
@@ -33,6 +33,12 @@ A personal task management web application combining kanban board functionality 
 - Match emails by sender and subject keywords
 - Automatic card creation for matching emails
 - Link to original Gmail messages
+
+### Background Jobs
+- Job queue system for async processing
+- CLI commands for Gmail sync, Calendar sync, token refresh
+- Supervisor and crontab support for production deployment
+- Due date reminders and automatic cleanup tasks
 
 ### User Experience
 - Dark theme only (AsteroAdmin style with Bootstrap 5.3)
@@ -187,6 +193,24 @@ php spark cache:clear        # Clear cache
 php spark routes             # List all routes
 ```
 
+### Background Job Commands
+
+```bash
+# Job queue worker
+php spark jobs:work                    # Run once
+php spark jobs:work --daemon          # Run continuously
+
+# Sync commands
+php spark sync:gmail                   # Sync Gmail emails
+php spark sync:calendar --all          # Sync all calendars
+
+# Maintenance commands
+php spark tokens:refresh               # Refresh expired Google tokens
+php spark reminders:send               # Send due date reminders
+php spark jobs:cleanup --days=30       # Clean old completed jobs
+php spark gmail:renew-watches          # Renew expired Gmail watches
+```
+
 ## Project Structure
 
 ```
@@ -216,24 +240,25 @@ kanban-tasks-calendar/
 ## Documentation
 
 - [Project Documentation Index](docs/INDEX.md) - Comprehensive project documentation
+- [BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md) - Background jobs setup guide
 - [SCOPE.md](SCOPE.md) - Requirements specification
 - [DESIGN.md](DESIGN.md) - System design
 - [WORKFLOW.md](WORKFLOW.md) - Implementation workflow with progress tracking
 
 ## Status
 
-Current implementation progress: **54%** (68 of 126 tasks complete)
+Current implementation progress: **75%** (6 of 8 phases complete)
 
-| Phase | Status |
-|-------|--------|
-| Phase 0: Prerequisites & Setup | Complete |
-| Phase 1: Foundation Layer | Complete |
-| Phase 2: Core Kanban Features | Complete |
-| Phase 3: Frontend & UI | In Progress (74%) |
-| Phase 4: Google Integration | Pending |
-| Phase 5: Background Jobs | Pending |
-| Phase 6: Mobile & Polish | Pending |
-| Phase 7: Deployment | Pending |
+| Phase | Status | Completion |
+|-------|--------|------------|
+| Phase 0: Prerequisites & Setup | Complete | 100% |
+| Phase 1: Foundation Layer | Complete | 100% |
+| Phase 2: Core Kanban Features | Complete | 100% |
+| Phase 3: Frontend & UI | Complete | 100% |
+| Phase 4: Google Integration | Complete | 100% |
+| Phase 5: Background Jobs | Complete | 100% |
+| Phase 6: Mobile & Polish | In Progress | 13% |
+| Phase 7: Deployment | Pending | 0% |
 
 See [WORKFLOW.md](WORKFLOW.md) for detailed progress tracking.
 
