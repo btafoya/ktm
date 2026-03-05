@@ -18,28 +18,29 @@
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="mb-0">
-            <a href="<?= base_url('boards') ?>" class="text-decoration-none text-muted me-2">
+            <a href="<?= base_url('boards') ?>" class="text-decoration-none text-muted me-2" aria-label="Back to boards">
                 <i class="bi bi-grid-3x3"></i>
             </a>
-            <?= esc($board['name']) ?>
+            <span><?= esc($board['name']) ?></span>
         </h2>
-        <div class="btn-group">
-            <button class="btn btn-primary" id="addColumnBtn">
-                <i class="bi bi-plus-lg"></i> Add Column
+        <div class="btn-group" role="group" aria-label="Board actions">
+            <button class="btn btn-primary" id="addColumnBtn" aria-label="Add new column">
+                <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Column
             </button>
-            <button class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+            <button class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"
+                    aria-label="More board options" aria-expanded="false">
                 <span class="visually-hidden">Toggle dropdown</span>
             </button>
-            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" aria-label="Board options">
                 <li><a class="dropdown-item" href="<?= base_url("boards/{$board['id']}/edit") ?>">
-                    <i class="bi bi-pencil"></i> Edit Board
+                    <i class="bi bi-pencil" aria-hidden="true"></i> Edit Board
                 </a></li>
                 <li><a class="dropdown-item" href="#" data-action="set-default">
-                    <i class="bi bi-star"></i> Set as Default
+                    <i class="bi bi-star" aria-hidden="true"></i> Set as Default
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item text-danger" href="#" data-action="delete-board">
-                    <i class="bi bi-trash"></i> Delete Board
+                    <i class="bi bi-trash" aria-hidden="true"></i> Delete Board
                 </a></li>
             </ul>
         </div>
@@ -53,38 +54,43 @@
         <div class="kanban-columns flex-grow-1 overflow-auto d-flex gap-3 align-items-stretch">
             <?php foreach ($board['columns'] as $column): ?>
             <div class="kanban-column bg-dark-subtle rounded border border-secondary d-flex flex-column h-100"
-                 data-column-id="<?= $column['id'] ?>">
-                <div class="column-header p-3 border-bottom border-secondary d-flex justify-content-between align-items-center">
+                 data-column-id="<?= $column['id'] ?>" role="region" aria-label="Column: <?= esc($column['name']) ?>">
+                <div class="column-header p-3 border-bottom border-secondary d-flex justify-content-between align-items-center"
+                     role="heading" aria-level="3">
                     <div class="d-flex align-items-center gap-2">
                         <span class="column-color rounded-circle d-inline-block"
-                              style="width: 12px; height: 12px; background-color: <?= $column['color'] ?>"></span>
+                              style="width: 12px; height: 12px; background-color: <?= $column['color'] ?>"
+                              aria-hidden="true"></span>
                         <h6 class="mb-0 column-name" data-column-id="<?= $column['id'] ?>">
                             <?= esc($column['name']) ?>
                             <span class="text-muted ms-1 small">(<?= count($column['cards']) ?>)</span>
                         </h6>
                     </div>
                     <div class="dropdown">
-                        <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                        <button class="btn btn-sm btn-link text-muted p-0 drag-handle" data-bs-toggle="dropdown"
+                                aria-label="Column options for <?= esc($column['name']) ?>" aria-expanded="false">
                             <i class="bi bi-three-dots-vertical"></i>
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-dark">
+                        <ul class="dropdown-menu dropdown-menu-dark" aria-label="Column options">
                             <li><a class="dropdown-item" href="#" data-action="edit-column">
-                                <i class="bi bi-pencil"></i> Edit
+                                <i class="bi bi-pencil" aria-hidden="true"></i> Edit
                             </a></li>
                             <li><a class="dropdown-item text-danger" href="#" data-action="delete-column">
-                                <i class="bi bi-trash"></i> Delete
+                                <i class="bi bi-trash" aria-hidden="true"></i> Delete
                             </a></li>
                         </ul>
                     </div>
                 </div>
-                <div class="column-cards p-2 flex-grow-1 overflow-y-auto" data-column-id="<?= $column['id'] ?>">
+                <div class="column-cards p-2 flex-grow-1 overflow-y-auto" data-column-id="<?= $column['id'] ?>"
+                     role="list" aria-label="Cards in <?= esc($column['name']) ?>">
                     <?php foreach ($column['cards'] as $card): ?>
                     <?= view('cards/_card', ['card' => $card, 'column' => $column]) ?>
                     <?php endforeach; ?>
                 </div>
                 <div class="p-2 pt-0">
-                    <button class="btn btn-sm btn-outline-light w-100 add-card-btn" data-column-id="<?= $column['id'] ?>">
-                        <i class="bi bi-plus"></i> Add Card
+                    <button class="btn btn-sm btn-outline-light w-100 add-card-btn" data-column-id="<?= $column['id'] ?>"
+                            aria-label="Add card to <?= esc($column['name']) ?>">
+                        <i class="bi bi-plus" aria-hidden="true"></i> Add Card
                     </button>
                 </div>
             </div>
@@ -229,7 +235,23 @@ $(document).ready(function() {
     $('.kanban-board').on('click', '[data-action="delete-column"]', function(e) {
         e.preventDefault();
         const columnId = $(this).closest('.kanban-column').data('column-id');
-        if (confirm('Are you sure you want to delete this column and all its cards?')) {
+        const columnName = $(this).closest('.kanban-column').find('.column-name').text().trim().split('(')[0].trim();
+
+        if (window.showConfirm) {
+            window.showConfirm({
+                title: 'Delete Column',
+                message: `Are you sure you want to delete "${columnName}" and all its cards? This action cannot be undone.`,
+                confirmText: 'Delete',
+                confirmClass: 'btn-danger',
+                onConfirm: function() {
+                    $.ajax({
+                        url: `<?= base_url('columns') ?>/${columnId}`,
+                        method: 'DELETE',
+                        success: () => location.reload()
+                    });
+                }
+            });
+        } else if (confirm('Are you sure you want to delete this column and all its cards?')) {
             $.ajax({
                 url: `<?= base_url('columns') ?>/${columnId}`,
                 method: 'DELETE',
@@ -258,7 +280,23 @@ $(document).ready(function() {
 
     $('[data-action="delete-board"]').on('click', function(e) {
         e.preventDefault();
-        if (confirm('Are you sure you want to delete this board?')) {
+        const boardName = '<?= esc($board['name']) ?>';
+
+        if (window.showConfirm) {
+            window.showConfirm({
+                title: 'Delete Board',
+                message: `Are you sure you want to delete "${boardName}"? This action cannot be undone.`,
+                confirmText: 'Delete',
+                confirmClass: 'btn-danger',
+                onConfirm: function() {
+                    $.ajax({
+                        url: `<?= base_url("boards/{$board['id']}") ?>`,
+                        method: 'DELETE',
+                        success: () => window.location.href = '<?= base_url('boards') ?>'
+                    });
+                }
+            });
+        } else if (confirm('Are you sure you want to delete this board?')) {
             $.ajax({
                 url: `<?= base_url("boards/{$board['id']}") ?>`,
                 method: 'DELETE',
@@ -306,9 +344,41 @@ $(document).ready(function() {
                                name="due_date" value="${cardData?.due_date || ''}">
                     </div>
                 </div>
+                ${moveButtonHtml}
+            </form>`;
             </form>
         `;
         $('#cardModalBody').html(bodyHtml);
+
+        // Add move button for mobile when editing
+        let moveButtonHtml = '';
+        if (isEdit) {
+            const columns = [];
+            $('.kanban-column').each(function() {
+                const colId = $(this).data('column-id');
+                const colName = $(this).find('.column-name').text().trim().split('(')[0].trim();
+                columns.push({ id: colId, name: colName });
+            });
+
+            let optionsHtml = '';
+            columns.forEach(col => {
+                const isSelected = col.id == columnId ? 'selected' : '';
+                optionsHtml += `<option value="${col.id}" ${isSelected}>${col.name}</option>`;
+            });
+
+            moveButtonHtml = `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <label class="form-label">Move to column</label>
+                        <select class="form-select bg-dark-subtle text-light border-secondary card-move-column" name="move_column">
+                            <option value="">Stay in current column</option>
+                            ${optionsHtml}
+                        </select>
+                    </div>
+                </div>
+            `;
+        }
+
         $('#cardModalFooter').html(`
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
             <button type="button" class="btn btn-primary" id="saveCardBtn">${isEdit ? 'Update' : 'Create'}</button>
@@ -342,8 +412,11 @@ $(document).ready(function() {
                 form.reportValidity();
                 return;
             }
+            const moveColumn = $(form).find('[name="move_column"]').val();
+            const targetColumnId = moveColumn ? parseInt(moveColumn) : columnId;
+
             const data = {
-                column_id: columnId,
+                column_id: targetColumnId,
                 title: $(form).find('[name="title"]').val(),
                 description: $(form).find('[name="description"]').val(),
                 priority: $(form).find('[name="priority"]').val(),

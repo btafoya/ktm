@@ -1,0 +1,137 @@
+{
+  "project": {
+    "name": "Kanban Task Manager",
+    "slug": "ktm",
+    "description": "Personal task management web app with kanban boards, Google Calendar, and Gmail integration",
+    "repo": "https://github.com/btafoya/ktm.git",
+    "generated": "2026-03-05"
+  },
+  "tech_stack": {
+    "backend": "PHP 8.4",
+    "framework": "CodeIgniter 4.7",
+    "database": "PostgreSQL 15",
+    "frontend": "Bootstrap 5.3",
+    "js": ["jQuery 4.0", "SortableJS 1.15.2", "TipTap 2.2.4"]
+  },
+  "entry_points": {
+    "web": "public/index.php",
+    "cli": "spark",
+    "dev_server": "php spark serve"
+  },
+  "directories": {
+    "app/Controllers": 13,
+    "app/Models": 14,
+    "app/Services": 4,
+    "app/Commands": 7,
+    "app/Filters": 3,
+    "app/Views": 19,
+    "app/Database/Migrations": 17,
+    "app/Config": 40
+  },
+  "controllers": [
+    "AuthController",
+    "BaseController",
+    "BoardController",
+    "CardController",
+    "ChecklistController",
+    "ColumnController",
+    "GoogleController",
+    "GmailController",
+    "SettingsController",
+    "TagController",
+    "AttachmentController",
+    "HomeController",
+    "Home"
+  ],
+  "models": [
+    "UserModel",
+    "BoardModel",
+    "ColumnModel",
+    "CardModel",
+    "ChecklistItemModel",
+    "TagModel",
+    "AttachmentModel",
+    "GoogleCalendarModel",
+    "GoogleTokenModel",
+    "GmailSenderModel",
+    "GmailWatchModel",
+    "EmailModel",
+    "JobModel",
+    "PasswordResetModel"
+  ],
+  "services": [
+    "GoogleAuthService",
+    "CalendarSyncService",
+    "GmailSyncService",
+    "JobService"
+  ],
+  "commands": [
+    {"name": "JobWorker", "usage": "php spark jobs:work [--daemon]"},
+    {"name": "SyncGmail", "usage": "php spark sync:gmail [--user-id=1]"},
+    {"name": "SyncCalendar", "usage": "php spark sync:calendar --all"},
+    {"name": "RefreshTokens", "usage": "php spark tokens:refresh"},
+    {"name": "SendReminders", "usage": "php spark reminders:send"},
+    {"name": "CleanupJobs", "usage": "php spark jobs:cleanup --days=30"},
+    {"name": "RenewGmailWatches", "usage": "php spark gmail:renew-watches"}
+  ],
+  "filters": [
+    "AuthFilter",
+    "ApiAuthFilter",
+    "RateLimitFilter"
+  ],
+  "migrations": [
+    "000001_CreateUsersTable",
+    "000002_CreateBoardsTable",
+    "000003_CreateColumnsTable",
+    "000004_CreateCardsTable",
+    "000005_CreateChecklistItemsTable",
+    "000006_CreateTagsTable",
+    "000007_CreateCardTagsTable",
+    "000008_CreateAttachmentsTable",
+    "000009_CreateGoogleCalendarsTable",
+    "000010_CreateGoogleTokensTable",
+    "000011_CreateGmailSendersTable",
+    "000012_CreateGmailWatchesTable",
+    "000013_CreateEmailsTable",
+    "000014_CreateJobsTable",
+    "000015_CreatePasswordResetsTable",
+    "000016_AddExternalFieldsToCardsTable",
+    "000017_AddCardBodyField"
+  ],
+  "frontend": {
+    "css": ["bootstrap.min.css", "bootstrap-icons.css", "kanban.css"],
+    "js": ["jquery.min.js", "bootstrap.bundle.min.js", "sortable.min.js", "marked.min.js", "turndown.min.js", "tiptap.min.js", "app.js"]
+  },
+  "documentation": {
+    "PROJECT_INDEX.md": "Quick reference (this file)",
+    "README.md": "Installation and usage",
+    "SCOPE.md": "Requirements",
+    "DESIGN.md": "System design",
+    "WORKFLOW.md": "Implementation workflow",
+    "CLAUDE.md": "Claude project instructions",
+    "docs/INDEX.md": "Documentation index",
+    "docs/BACKGROUND_JOBS.md": "Background jobs setup",
+    "docs/crontab.example": "Crontab config",
+    "docs/supervisor.conf": "Supervisor config",
+    ".env.example": "Environment template"
+  },
+  "dependencies": {
+    "codeigniter4/framework": "^4.7",
+    "google/apiclient": "^2.15",
+    "phpunit/phpunit": "^10.5.16"
+  },
+  "progress": {
+    "overall": 75,
+    "phases": [
+      {"name": "Phase 0", "status": "complete"},
+      {"name": "Phase 1", "status": "complete"},
+      {"name": "Phase 2", "status": "complete"},
+      {"name": "Phase 3", "status": "complete"},
+      {"name": "Phase 4", "status": "complete"},
+      {"name": "Phase 5", "status": "complete"},
+      {"name": "Phase 6", "status": "in_progress", "completion": 13},
+      {"name": "Phase 7", "status": "pending"}
+    ]
+  },
+  "latest_commit": "6841679"
+}

@@ -203,7 +203,24 @@ $(document).ready(function() {
 
     $('[data-action="delete-item"]').on('click', function() {
         const itemId = $(this).closest('li').data('item-id');
-        if (confirm('Delete this checklist item?')) {
+        if (window.showConfirm) {
+            window.showConfirm({
+                title: 'Delete Item',
+                message: 'Delete this checklist item?',
+                confirmClass: 'btn-danger',
+                onConfirm: function() {
+                    $.ajax({
+                        url: `<?= base_url('checklists') ?>/${itemId}`,
+                        method: 'DELETE',
+                        success: () => location.reload(),
+                        error: function(xhr) {
+                            const msg = xhr.responseJSON?.message || 'Failed to delete item.';
+                            showAlert(msg, 'danger');
+                        }
+                    });
+                }
+            });
+        } else if (confirm('Delete this checklist item?')) {
             $.ajax({
                 url: `<?= base_url('checklists') ?>/${itemId}`,
                 method: 'DELETE',
@@ -217,7 +234,25 @@ $(document).ready(function() {
     });
 
     $('[data-action="delete-card"]').on('click', function() {
-        if (confirm('Are you sure you want to delete this card?')) {
+        if (window.showConfirm) {
+            window.showConfirm({
+                title: 'Delete Card',
+                message: 'Are you sure you want to delete this card? This action cannot be undone.',
+                confirmText: 'Delete',
+                confirmClass: 'btn-danger',
+                onConfirm: function() {
+                    $.ajax({
+                        url: `<?= base_url('cards') ?>/${cardId}`,
+                        method: 'DELETE',
+                        success: () => window.location.href = `<?= base_url("boards/{$card['board_id']}") ?>`,
+                        error: function(xhr) {
+                            const msg = xhr.responseJSON?.message || 'Failed to delete card.';
+                            showAlert(msg, 'danger');
+                        }
+                    });
+                }
+            });
+        } else if (confirm('Are you sure you want to delete this card?')) {
             $.ajax({
                 url: `<?= base_url('cards') ?>/${cardId}`,
                 method: 'DELETE',
@@ -228,6 +263,82 @@ $(document).ready(function() {
                 }
             });
         }
+    });
+
+    // Move card functionality
+    $('[data-action="move-card"]').on('click', function() {
+        const columns = [];
+        $('.kanban-column').each(function() {
+            const columnId = $(this).data('column-id');
+            const columnName = $(this).find('.column-name').text().trim().split('(')[0].trim();
+            columns.push({ id: columnId, name: columnName });
+        });
+
+        if (columns.length === 0) {
+            showAlert('No columns available to move to.', 'warning');
+            return;
+        }
+
+        let optionsHtml = '<option value="">Select a column...</option>';
+        columns.forEach(col => {
+            const isSelected = col.id === <?= $card['column_id'] ?> ? 'selected' : '';
+            optionsHtml += `<option value="${col.id}" ${isSelected}>${col.name}</option>`;
+        });
+
+        const modalHtml = `
+            <div class="modal fade" id="moveCardModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content bg-dark text-light border-secondary">
+                        <div class="modal-header border-secondary">
+                            <h5 class="modal-title">Move Card</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <label class="form-label">Move to column:</label>
+                            <select class="form-select bg-dark-subtle text-light border-secondary" id="moveCardColumn">
+                                ${optionsHtml}
+                            </select>
+                        </div>
+                        <div class="modal-footer border-secondary">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="confirmMoveCard">Move</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        $('#moveCardModal').remove();
+        $('body').append(modalHtml);
+
+        const modal = new bootstrap.Modal(document.getElementById('moveCardModal'));
+        modal.show();
+
+        $('#confirmMoveCard').on('click', function() {
+            const columnId = $('#moveCardColumn').val();
+            if (!columnId) {
+                showAlert('Please select a column.', 'warning');
+                return;
+            }
+            if (columnId == <?= $card['column_id'] ?>) {
+                showAlert('Card is already in this column.', 'info');
+                return;
+            }
+
+            $.ajax({
+                url: `<?= base_url('cards') ?>/${cardId}`,
+                method: 'PUT',
+                data: { column_id: columnId },
+                success: () => {
+                    modal.hide();
+                    window.location.href = `<?= base_url("boards/{$card['board_id']}") ?>`;
+                },
+                error: function(xhr) {
+                    const msg = xhr.responseJSON?.message || 'Failed to move card.';
+                    showAlert(msg, 'danger');
+                }
+            });
+        });
     });
 });
 </script>
